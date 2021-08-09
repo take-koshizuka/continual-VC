@@ -1,0 +1,15 @@
+defaults:
+    - dataset: cmu_arctic
+    - preprocessing: default
+    - model: wav2vec_rnn
+    - training: wav2vec_rnn
+
+seed: 100
+synthesis_list: ???
+out_dir: ???
+enc_checkpoint: ???
+dec_checkpoint: ???
+
+measure:
+    - mcd
+    - wer-cer
