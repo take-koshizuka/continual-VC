@@ -24,7 +24,24 @@
 ```
 
 
-## 1. Setup
+# Setup
+
+1. Install Docker.
+   * Install NVIDIA Container Toolkit for GPU support.
+   * Setup running Docker as a non-root user.
+
+2. Clone this repository and cd into it.
+    ```bash
+    git clone https://github.com/take-koshizuka/continual-VC.git
+    ```
+3. Build the Docker image using Docker/Dockerfile
+    ```bash
+    cd Docker && docker build . -t env_vc
+    ```
+4. Download [CMU ARCTIC Database](http://www.festvox.org/cmu_arctic/) and pre-trained vq-wav2vec parameters from [here](https://github.com/pytorch/fairseq/tree/master/examples/wav2vec).
+    ```bash
+    docker run -it --rm --runtime=nvidia env_vc python:3 python download.py -root /path/to/root
+    ```
 
 * Create empty directories (or symbolic links) named "checkpoints", "tensorboard", "outputs" in "core" directory. 
 * Download dataset (ex. CMU_ARCTIC) and place it in the "datasets" directory. 
