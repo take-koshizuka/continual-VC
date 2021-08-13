@@ -6,7 +6,6 @@ SHELL ["/bin/bash", "-c"]
 RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
       build-essential \
       curl \
-      camke \
       sox \
       libsox-dev \
       libsox-fmt-all \
@@ -37,7 +36,12 @@ RUN chmod 777 /home/user
 
 RUN pip install tensorboard \
     && pip install fairseq==0.10.0 \
-    && pip install torchaudio==0.9.0
+    && pip install torchaudio==0.9.0 \
+    && pip install transformers==4.9.2 \
+    && pip install python-Levenshtein \
+    && pip install pyworld pysptk \
+    && pip install fastdtw \
+    && pip install pyloudnorm
 
 # Set the default command to python3
 CMD ["python3"]

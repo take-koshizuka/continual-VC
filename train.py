@@ -11,6 +11,8 @@ from model import VQW2V_RNNDecoder
 from utils import EarlyStopping
 from copy import deepcopy
 from tqdm import tqdm
+from pathlib import Path
+import argparse
 
 try:
     import apex.amp as amp
@@ -28,12 +30,12 @@ def fix_seed(seed):
     torch.cuda.manual_seed_all(seed)
     torch.backends.cudnn.deterministic = True
 
-def main(train_config_path, resume_path, checkpoint_path, scalars_path):
+def main(train_config_path, checkpoint_dir, resume_path=""):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     with open(train_config_path, 'r') as f:
         cfg = json.load(f)
-
     fix_seed(cfg['seed'])
+    checkpoint_dir.mkdir(parents=True, exist_ok=True)
 
     tr_ds = WavDataset(
         root=cfg['dataset']['folder_in_archive'],
@@ -73,7 +75,7 @@ def main(train_config_path, resume_path, checkpoint_path, scalars_path):
                     betas=(float(cfg['optim']['beta_0']), float(cfg['optim']['beta_1']))
                 )
 
-    schedular = optim.lr_scheduler.MultiStepLR(
+    scheduler = optim.lr_scheduler.MultiStepLR(
                     optimizer, milestones=cfg['scheduler']['milestones'],
                     gamma=cfg['scheduler']['gamma']
                 )
@@ -83,21 +85,25 @@ def main(train_config_path, resume_path, checkpoint_path, scalars_path):
     init_epochs = 1
     max_epochs = cfg['epochs']
 
-    if not resume_path is None:
+    if not resume_path == "":
         checkpoint = torch.load(resume_path, map_location=lambda storage, loc: storage)
         model.load_model(checkpoint)
-        model.to(device)
+        optimizer.load_state_dict(checkpoint["optimizer"])
+        scheduler.load_state_dict(checkpoint["scheduler"])
         init_epochs = checkpoint['epochs']
+        model.to(device)
 
     if AMP:
-        model.decoder, optimizer = amp.initialize(model.decoder, optimizer, opt_level="01")
+        model.decoder, optimizer = amp.initialize(model.decoder, optimizer, opt_level="O1")
 
     model.encoder.eval()
     writer = SummaryWriter()
+    records = {}
     
     for i in tqdm(range(init_epochs, max_epochs + 1)):
         # training phase
-        for batch_idx, train_batch in enumerate(tr_dl):
+        for batch_idx, train_batch in enumerate(tqdm(tr_dl)):
+            optimizer.zero_grad()
             out = model.training_step(train_batch, batch_idx)
             if AMP:
                 with amp.scale_loss(out['loss'], optimizer) as scaled_loss:
@@ -108,9 +114,8 @@ def main(train_config_path, resume_path, checkpoint_path, scalars_path):
                 torch.nn.utils.clip_grad_norm_(model.decoder.parameters(), 1)
 
             optimizer.step()
-            schedular.step()
-            optimizer.zero_grad()
             del train_batch
+        scheduler.step()
 
         # validation phase
         outputs = []
@@ -120,24 +125,48 @@ def main(train_config_path, resume_path, checkpoint_path, scalars_path):
             del eval_batch
 
         val_result = model.validation_epoch_end(outputs)
-
         writer.add_scalars('data/loss', val_result['log'])
+        records[f'epoch {i}'] = val_result['log']
 
         # early_stopping
         if early_stopping.judge(val_result):
             early_stopping.update(val_result)
-            state_dict = model.state_dict()
+            state_dict = model.state_dict(optimizer, scheduler)
             state_dict['epochs'] = i
             early_stopping.best_state = deepcopy(state_dict)
+
+        if i % cfg['checkpoint_period'] == 0:
+            state_dict = model.state_dict(optimizer, scheduler)
+            state_dict['epochs'] = i
+            torch.save(state_dict, str(checkpoint_dir / f"model-{i}.pt"))
     
     best_state = early_stopping.best_state
-    torch.save(best_state, checkpoint_path)
-    writer.export_scalars_to_json(scalars_path)
+    torch.save(best_state, str(checkpoint_dir / "best-model.pt"))
+    with open(str(checkpoint_dir / "train_config.json"), "w") as f:
+        json.dump(cfg, f, indent=4)
+    
+    with open(str(checkpoint_dir / "records.json"), "w") as f:
+        json.dump(records, f, indent=4)
+    
     writer.close()
 
 if __name__ == '__main__':
-    train_config_path = "config/train_config.json"
-    resume_path = None # or path
-    checkpoint_path = "checkpoints/best_model.pt"
-    scalars_path = "outputs/exp.json"
-    main(train_config_path, resume_path, checkpoint_path, scalars_path)
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-config', help="Path to the configuration file for training.", type=str, required=True)
+    parser.add_argument('-c', '-config')
+
+    parser.add_argument('-dir', help="Path to the directory where the checkpoint of the model is stored.", type=str, required=True)
+    parser.add_argument('-d', '-dir')
+
+    parser.add_argument('-resume', help="Path to the checkpoint of the model you want to resume training.", type=str, default="")
+    parser.add_argument('-r', '-resume')
+
+    args = parser.parse_args()
+
+    ## default
+    # args.config = "config/train_config.json"
+    # args.dir = "checkpoints/exp"
+    # args.resume = ""
+    ##
+
+    main(args.config, Path(args.dir), args.resume)

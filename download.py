@@ -115,7 +115,6 @@ def download_model(root):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.parse_args()
     parser.add_argument('-root', help="Path to the directory where the dataset is found or downloaded.", default='./', type=str)
     args = parser.parse_args()
 

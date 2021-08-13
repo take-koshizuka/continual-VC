@@ -1,4 +1,5 @@
 from json import decoder
+from utils import CharErrorRate, WordErrorRate
 import torch
 import torch.nn as nn
 import torchaudio.functional as aF
@@ -7,6 +8,9 @@ from torch.distributions import Categorical
 from fairseq.models.wav2vec import Wav2VecModel
 from tqdm import tqdm
 from copy import deepcopy
+import scipy.io.wavfile as sw
+import numpy as np
+from utils import Wav2Letter, MelCepstralDistortion, WordErrorRate, CharErrorRate
 
 try:
     import apex.amp as amp
@@ -158,29 +162,56 @@ class VQW2V_RNNDecoder(nn.Module):
 
     def validation_epoch_end(self, outputs):
         avg_loss = torch.mean(torch.cat([ out['val_loss'] for out in outputs ], dim=0)).item()
-        tensorboard_logs = { 'avg_val_loss' : avg_loss }
-        return { 'avg_loss' : avg_loss, 'log' : tensorboard_logs }
+        logs = { 'avg_val_loss' : avg_loss }
+        return { 'avg_loss' : avg_loss, 'log' : logs }
 
-    def convert(self, batch, batch_idx):
-        self.encoder.eval()
-        self.decoder.eval()
-        audio, speakers = batch['audio'].to(self.device), batch['speakers'].to(self.device)
-        if audio.dim() == 2:
-            audio = audio.unsqueeze(0)
-
-        assert audio.dim() == 3
+    def convert(self, audio, speakers):
         with torch.no_grad():
             idxs = self.encoder.encode(audio)
             idxs1, idxs2 = idxs[:, :, 0], idxs[:, :, 1]
-            output = self.decoder.generate(idxs1, idxs2, speakers, audio.size(0))
-            
-        return { 'output' : output }
+            output = self.decoder.generate(idxs1, idxs2, speakers, audio.size(0)) 
+        return output
+
+    def conversion_step(self, batch, batch_idx):
+        self.encoder.eval()
+        self.decoder.eval()
+        audio, speakers = batch['source_audio'].to(self.device), batch['target_speaker_id'].to(self.device)
+        if audio.dim() == 2: 
+            audio = audio.unsqueeze(0)
+        assert audio.dim() == 3
+        output = self.convert(audio, speakers)
+        return dict(
+            cv=output.cpu().detach(), 
+            converted_audio_path=batch['converted_audio_path'],
+            utterance=batch['utterance']
+        )
+        
+    def conversion_epoch_end(self, outputs):
+        converted_audio_paths = np.array([ out['converted_audio_path'] for out in outputs ]).flatten()
+        utterances = np.array([ out['utterance'] for out in outputs ]).flatten()
+        w2l = Wav2Letter()
+        mcd = MelCepstralDistortion()
+        wer = WordErrorRate()
+        cer = CharErrorRate()
+        for converted_audio_path, utterance in zip(converted_audio_paths, utterances):
+            cv = sw.load(converted_audio_path)
+            transcription = w2l.decode(cv)
+            mcd.calculate_metric(cv)
+            wer.calculate_metric(transcription, utterance)
+            cer.calculate_metric(transcription, utterance)
+        
+        avg_mcd = mcd.compute()
+        avg_wer = wer.compute()
+        avg_cer = cer.compute()
+
+        logs = { 'avg_mcd' : avg_mcd, 'avg_wer' : avg_wer, 'avg_cer' : avg_cer }
+        return { 'logs' : logs }
     
-    def state_dict(self):
+    def state_dict(self, optimizer, scheduler):
         dic =  {
             "decoder": deepcopy(self.decoder.state_dict()),
-            "optimizer": deepcopy(self.optimizer.state_dict()),
-            "schedular": deepcopy(self.schedular.state_dict()),
+            "optimizer": deepcopy(optimizer.state_dict()),
+            "scheduler": deepcopy(scheduler.state_dict()),
         }
         if AMP:
             dic['amp'] = deepcopy(amp.state_dict())
@@ -188,8 +219,6 @@ class VQW2V_RNNDecoder(nn.Module):
 
     def load_model(self, checkpoint):
         self.decoder.load_state_dict(checkpoint["decoder"])
-        self.optimizer.load_state_dict(checkpoint["optimizer"])
-        self.schedular.load_state_dict(checkpoint["schedular"])
         if AMP:
             amp.load_state_dict(checkpoint["amp"])
 
@@ -240,6 +269,6 @@ class VQW2V_RNNDecoder_PseudoRehearsal(VQW2V_RNNDecoder):
         avg_loss = torch.mean(torch.cat([ out['val_loss'] for out in outputs ], dim=0)).item()
         avg_loss_fine = torch.mean(torch.cat([ out['val_loss_fine'] for out in outputs ], dim=0)).item()
         avg_loss_past = torch.mean(torch.cat([ out['val_loss_past'] for out in outputs ], dim=0)).item()
-        tensorboard_logs = { 'avg_val_loss' : avg_loss, 'avg_loss_fine' : avg_loss_fine, 'avg_loss_past' : avg_loss_past }
-        return { 'avg_loss' : avg_loss, 'log' : tensorboard_logs }
+        logs = { 'avg_val_loss' : avg_loss, 'avg_loss_fine' : avg_loss_fine, 'avg_loss_past' : avg_loss_past }
+        return { 'avg_loss' : avg_loss, 'log' : logs }
     
