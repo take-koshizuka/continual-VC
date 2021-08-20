@@ -1,6 +1,6 @@
 {
     "seed" : 57,
-    "epochs": 2750,
+    "epochs": 1400,
     "checkpoint_period": 500,
     "dataset" : {
         "folder_in_archive": "ARCTIC",
@@ -9,10 +9,11 @@
         "sample_frames" : 32,
         "hop_length": 160,
         "bits": 8,
-        "train_list_path": "config/train_list.json",
-        "val_list_path": "config/val_list.json"
+        "train_list_path": "data_list/train_fine.json",
+        "val_list_path": "data_list/val_fine.json"
     },
     "encoder" : "checkpoints/vq-wav2vec.pt",
+    "decoder_checkpoint" : "checkpoints/pre/best-model.pt",
     "decoder" : {
         "code_book_num": 320,
         "code_embedding_dim": 128,

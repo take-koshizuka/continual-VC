@@ -4,7 +4,7 @@
         "folder_in_archive": "ARCTIC",
         "batch_size" : 1,
         "sr" : 16000,
-        "synthesis_list_path": "config/synthesis_list.json"
+        "synthesis_list_path": "config/test_fine.json"
     },
     "encoder" : "checkpoints/vq-wav2vec.pt",
     "decoder" : {
