@@ -5,7 +5,6 @@
         "folder_in_archive": "ARCTIC",
         "batch_size_fine" : 16,
         "batch_size_pre" : 16,
-        "n_workers": 1,
         "sr" : 16000,
         "sample_frames" : 32,
         "hop_length": 160,

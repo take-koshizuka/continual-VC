@@ -18,7 +18,6 @@ try:
 except ImportError:
     AMP = False
     
-
 def get_gru_cell(gru):
     gru_cell = nn.GRUCell(gru.input_size, gru.hidden_size)
     gru_cell.weight_hh.data = gru.weight_hh_l0.data
@@ -90,7 +89,6 @@ class RnnDecoder(nn.Module):
         return x
 
     def generate(self, idxs1, idxs2, speaker, audio_size):
-        output = []
         cell = get_gru_cell(self.rnn2)
         z1 = self.code_embedding_1(idxs1)
         z2 = self.code_embedding_2(idxs2)
@@ -112,18 +110,18 @@ class RnnDecoder(nn.Module):
         h = torch.zeros(batch_size, self.rnn_channels, device=z.device)
         x = torch.zeros(batch_size, device=z.device).fill_(self.quantization_channels // 2).long()
         unbind = torch.unbind(z, dim=1)
+        outputs = torch.empty(batch_size, len(unbind))
 
-        for m in tqdm(unbind, leave=False):
+        for i, m in enumerate(tqdm(unbind, leave=False)):
             x = self.mu_embedding(x)
             h = cell(torch.cat((x, m), dim=1), h)
             x = F.relu(self.fc1(h))
             logits = self.fc2(x)
             dist = Categorical(logits=logits)
             x = dist.sample()
-            output.append(2 * x.float().item() / (self.quantization_channels - 1.) - 1.)
-
-        output = aF.mu_law_decoding(output, self.quantization_channels)
-        return output
+            outputs[:, i] = x.float()
+        outputs = aF.mu_law_decoding(outputs.float(), self.quantization_channels)
+        return outputs
 
 class VQW2V_RNNDecoder(nn.Module):
     def __init__(self, enc_checkpoint_path, decoder_cfg, device):
@@ -169,37 +167,42 @@ class VQW2V_RNNDecoder(nn.Module):
         with torch.no_grad():
             idxs = self.encoder.encode(audio)
             idxs1, idxs2 = idxs[:, :, 0], idxs[:, :, 1]
-            output = self.decoder.generate(idxs1, idxs2, speakers, audio.size(0)) 
+            output = self.decoder.generate(idxs1, idxs2, speakers, audio.size(-1)) 
         return output
 
     def conversion_step(self, batch, batch_idx):
         self.encoder.eval()
         self.decoder.eval()
         audio, speakers = batch['source_audio'].to(self.device), batch['target_speaker_id'].to(self.device)
-        if audio.dim() == 2: 
-            audio = audio.unsqueeze(0)
-        assert audio.dim() == 3
         output = self.convert(audio, speakers)
         return dict(
             cv=output.cpu().detach(), 
             converted_audio_path=batch['converted_audio_path'],
+            target_audio=batch['target_audio'],
             utterance=batch['utterance']
         )
         
     def conversion_epoch_end(self, outputs):
         converted_audio_paths = np.array([ out['converted_audio_path'] for out in outputs ]).flatten()
+        target_audio = [ audio.cpu().numpy() for out in outputs for audio in out['target_audio'] ]
         utterances = np.array([ out['utterance'] for out in outputs ]).flatten()
         w2l = Wav2Letter()
         mcd = MelCepstralDistortion()
         wer = WordErrorRate()
         cer = CharErrorRate()
-        for converted_audio_path, utterance in zip(converted_audio_paths, utterances):
-            cv = sw.load(converted_audio_path)
-            transcription = w2l.decode(cv)
-            mcd.calculate_metric(cv)
+
+        eval_num = len(converted_audio_paths)
+        for i in range(eval_num):
+            converted_audio_path = converted_audio_paths[i]
+            tar = target_audio[i]
+            utterance = utterances[i].lower()
+            _, cv = sw.read(converted_audio_path)
+
+            transcription = w2l.decode(cv).lower()
+            mcd.calculate_metric(cv, tar)
             wer.calculate_metric(transcription, utterance)
             cer.calculate_metric(transcription, utterance)
-        
+
         avg_mcd = mcd.compute()
         avg_wer = wer.compute()
         avg_cer = cer.compute()
@@ -217,9 +220,9 @@ class VQW2V_RNNDecoder(nn.Module):
             dic['amp'] = deepcopy(amp.state_dict())
         return dic
 
-    def load_model(self, checkpoint):
+    def load_model(self, checkpoint, amp=True):
         self.decoder.load_state_dict(checkpoint["decoder"])
-        if AMP:
+        if amp:
             amp.load_state_dict(checkpoint["amp"])
 
 

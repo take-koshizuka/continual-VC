@@ -58,12 +58,10 @@ def main(train_config_path, checkpoint_dir, resume_path=""):
     tr_dl = DataLoader(tr_ds,
             batch_size=cfg['dataset']['batch_size'],
             shuffle=True,
-            num_workers=cfg['dataset']['n_workers'],
             drop_last=True)
 
     va_dl = DataLoader(va_ds,
             batch_size=cfg['dataset']['batch_size'],
-            num_workers=cfg['dataset']['n_workers'],
             drop_last=False)
 
     model = VQW2V_RNNDecoder(cfg['encoder'], cfg['decoder'], device)
@@ -85,6 +83,9 @@ def main(train_config_path, checkpoint_dir, resume_path=""):
     init_epochs = 1
     max_epochs = cfg['epochs']
 
+    if AMP:
+        model.decoder, optimizer = amp.initialize(model.decoder, optimizer, opt_level="O1")
+
     if not resume_path == "":
         checkpoint = torch.load(resume_path, map_location=lambda storage, loc: storage)
         model.load_model(checkpoint)
@@ -93,16 +94,13 @@ def main(train_config_path, checkpoint_dir, resume_path=""):
         init_epochs = checkpoint['epochs']
         model.to(device)
 
-    if AMP:
-        model.decoder, optimizer = amp.initialize(model.decoder, optimizer, opt_level="O1")
-
     model.encoder.eval()
     writer = SummaryWriter()
     records = {}
     
     for i in tqdm(range(init_epochs, max_epochs + 1)):
         # training phase
-        for batch_idx, train_batch in enumerate(tqdm(tr_dl)):
+        for batch_idx, train_batch in enumerate(tqdm(tr_dl, leave=False)):
             optimizer.zero_grad()
             out = model.training_step(train_batch, batch_idx)
             if AMP:
@@ -114,12 +112,12 @@ def main(train_config_path, checkpoint_dir, resume_path=""):
                 torch.nn.utils.clip_grad_norm_(model.decoder.parameters(), 1)
 
             optimizer.step()
+            scheduler.step()
             del train_batch
-        scheduler.step()
 
         # validation phase
         outputs = []
-        for batch_idx, eval_batch in enumerate(va_dl):
+        for batch_idx, eval_batch in enumerate(tqdm(va_dl, leave=False)):
             out = model.validation_step(eval_batch, batch_idx)
             outputs.append(out)
             del eval_batch
@@ -145,21 +143,16 @@ def main(train_config_path, checkpoint_dir, resume_path=""):
     with open(str(checkpoint_dir / "train_config.json"), "w") as f:
         json.dump(cfg, f, indent=4)
     
-    with open(str(checkpoint_dir / "records.json"), "w") as f:
+    with open(str(checkpoint_dir / f"records-{init_epochs}-{max_epochs}.json"), "w") as f:
         json.dump(records, f, indent=4)
     
     writer.close()
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('-config', help="Path to the configuration file for training.", type=str, required=True)
-    parser.add_argument('-c', '-config')
-
-    parser.add_argument('-dir', help="Path to the directory where the checkpoint of the model is stored.", type=str, required=True)
-    parser.add_argument('-d', '-dir')
-
-    parser.add_argument('-resume', help="Path to the checkpoint of the model you want to resume training.", type=str, default="")
-    parser.add_argument('-r', '-resume')
+    parser.add_argument('-config', '-c', help="Path to the configuration file for training.", type=str, required=True)
+    parser.add_argument('-dir', '-d', help="Path to the directory where the checkpoint of the model is stored.", type=str, required=True)
+    parser.add_argument('-resume', '-r', help="Path to the checkpoint of the model you want to resume training.", type=str, default="")
 
     args = parser.parse_args()
 

@@ -11,6 +11,7 @@ from dataset import WavDataset, PseudoWavDataset
 from model import VQW2V_RNNDecoder_PseudoRehearsal
 from utils import EarlyStopping
 from copy import deepcopy
+from tqdm import tqdm
 
 try:
     import apex.amp as amp
@@ -87,11 +88,13 @@ def main(train_config_path, resume_path, checkpoint_path, scalars_path):
             shuffle=True,
             num_workers=cfg['dataset']['n_workers'],
             drop_last=True)
+    tr_it_pre = iter(tr_dl_pre)
 
     va_dl_pre = DataLoader(va_ds_pre,
             batch_size=cfg['dataset']['batch_size_pre'],
             num_workers=cfg['dataset']['n_workers'],
             drop_last=False)
+    va_it_pre = iter(va_dl_pre)
 
     model = VQW2V_RNNDecoder_PseudoRehearsal(cfg['encoder'], cfg['decoder'], device)
     model.to(device)
@@ -124,9 +127,15 @@ def main(train_config_path, resume_path, checkpoint_path, scalars_path):
     model.encoder.eval()
     writer = SummaryWriter()
     
-    for i in range(init_epochs, max_epochs + 1):
+    for i in tqdm(range(init_epochs, max_epochs + 1)):
         # training phase
-        for batch_idx, (train_batch_fine, train_batch_pre) in enumerate(zip(tr_dl_fine, tr_dl_pre)):
+        for batch_idx, train_batch_fine in enumerate(tqdm(tr_dl_fine, leave=False)):
+            try:
+                train_batch_pre = next(tr_it_pre) 
+            except StopIteration:
+                tr_it_pre = iter(tr_dl_pre)
+                train_batch_pre = next(tr_it_pre)
+
             out = model.training_step(train_batch_fine, train_batch_pre, batch_idx)
             if AMP:
                 with amp.scale_loss(out['loss'], optimizer) as scaled_loss:
@@ -144,7 +153,13 @@ def main(train_config_path, resume_path, checkpoint_path, scalars_path):
 
         # validation phase
         outputs = []
-        for batch_idx, (eval_batch_fine, eval_batch_pre) in enumerate(zip(va_dl_fine, va_dl_pre)):
+        for batch_idx, eval_batch_fine in enumerate(zip(va_dl_fine, leave=False)):
+            try:
+                eval_batch_pre = next(va_it_pre) 
+            except StopIteration:
+                va_it_pre = iter(va_dl_pre)
+                eval_batch_pre = next(va_it_pre)
+
             out = model.validation_step(eval_batch_fine, eval_batch_pre, batch_idx)
             outputs.append(out)
             del eval_batch_fine

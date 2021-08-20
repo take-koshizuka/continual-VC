@@ -3,7 +3,6 @@
     "dataset" : {
         "folder_in_archive": "ARCTIC",
         "batch_size" : 1,
-        "n_workers": 1,
         "sr" : 16000,
         "synthesis_list_path": "config/synthesis_list.json"
     },
@@ -20,14 +19,5 @@
         "fc_channels": 256,
         "bits": 8,
         "hop_length": 160
-    },
-    "optim" : {
-        "lr" : 4e-4,
-        "beta_0" : 0.9,
-        "beta_1" : 0.999
-    },
-    "scheduler" : {
-        "milestones" : [50000, 75000, 100000, 125000],
-        "gamma": 0.5
     }
 }

@@ -5,7 +5,6 @@
     "dataset" : {
         "folder_in_archive": "ARCTIC",
         "batch_size" : 32,
-        "n_workers": 1,
         "sr" : 16000,
         "sample_frames" : 32,
         "hop_length": 160,

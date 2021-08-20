@@ -4,6 +4,7 @@ from torchaudio.models.wav2vec2.utils import import_huggingface_model
 from torchaudio.models import wav2vec2_large_lv60k
 from transformers import Wav2Vec2ForCTC, Wav2Vec2Tokenizer
 import numpy as np
+import re
 import pysptk
 import pyworld as pw
 import Levenshtein as Lev
@@ -31,11 +32,10 @@ class EarlyStopping(object):
     def update(self, values):
         self.monitor_values[self.monitor] = values[self.monitor]
 
-
 class Wav2Letter:
     def __init__(self):
         if not os.path.exists(PATH_TO_ASR):
-            original = Wav2Vec2ForCTC.from_pretrained("facebook/wav2vec2-large-960h")
+            original = Wav2Vec2ForCTC.from_pretrained("facebook/wav2vec2-large-960h-lv60-self")
             model = import_huggingface_model(original)
             torch.save(model.state_dict(), PATH_TO_ASR)
         
@@ -72,7 +72,7 @@ class MelCepstralDistortion:
 
     def compute(self):
         mcd = float(self.mcd) / self.n_frames
-        return mcd.item() * 100
+        return mcd
     
     def mcd_calc(self, wav, wav_ref):
         mc = self.wav2mcep(wav)
@@ -102,7 +102,7 @@ class CharErrorRate:
 
     def compute(self):
         cer = float(self.cer) / self.n_chars
-        return cer.item() * 100
+        return cer * 100
     
     def cer_calc(self, s1, s2):
         s1, s2, = s1.replace(' ', ''), s2.replace(' ', '')
@@ -117,11 +117,11 @@ class WordErrorRate:
     def calculate_metric(self, transcript, reference):
         wer_inst = self.wer_calc(transcript, reference)
         self.wer += wer_inst
-        self.n_tokens += len(reference.split())
+        self.n_words += len(reference.split())
 
     def compute(self):
-        wer = float(self.wer) / self.n_tokens
-        return wer.item() * 100
+        wer = float(self.wer) / self.n_words
+        return wer * 100
     
     def wer_calc(self, s1, s2):
         # build mapping of words to integers
