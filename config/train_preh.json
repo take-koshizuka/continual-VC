@@ -1,6 +1,6 @@
 {
     "seed" : 57,
-    "epochs": 160000,
+    "epochs": 2750,
     "dataset" : {
         "folder_in_archive": "ARCTIC",
         "batch_size_fine" : 16,

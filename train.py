@@ -58,8 +58,7 @@ def main(train_config_path, checkpoint_dir, resume_path=""):
     tr_dl = DataLoader(tr_ds,
             batch_size=cfg['dataset']['batch_size'],
             shuffle=True,
-            drop_last=True,
-            pin_memory=True)
+            drop_last=True)
     
     va_bs = len(va_ds) if len(va_ds) <= 40 else 25
     va_dl = DataLoader(va_ds,
