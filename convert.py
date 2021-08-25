@@ -24,6 +24,7 @@ def fix_seed(seed):
 
 def main(convert_config_path, checkpoint_path, outdir):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    Path(outdir).mkdir(exist_ok=True, parents=True)
     with open(convert_config_path, 'r') as f:
         cfg = json.load(f)
 

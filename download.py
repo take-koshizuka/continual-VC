@@ -121,4 +121,3 @@ if __name__ == '__main__':
     download_model(args.root)
     for speaker in SPEAKERS:
         download_dataset(args.root, speaker)
-    

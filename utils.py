@@ -11,7 +11,7 @@ import Levenshtein as Lev
 from scipy.spatial.distance import euclidean
 from fastdtw import fastdtw
 
-PATH_TO_ASR = "wav2vec2-base-960h.pt"
+PATH_TO_ASR = "checkpoints/wav2vec2-base-960h.pt"
 
 class EarlyStopping(object):
     def __init__(self, monitor='loss', direction='min'):

@@ -137,6 +137,8 @@ class Utterance:
         self.filename2utterance = {}
         for speaker in SPEAKERS:
             text_path = self.root / f"cmu_us_{speaker}_arctic" / "etc" / "txt.done.data"
+            if not text_path.exists():
+                continue
             with open(text_path) as f:
                 lines = f.readlines()
                 for line in lines:

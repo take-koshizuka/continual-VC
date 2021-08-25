@@ -113,7 +113,7 @@ def main(train_config_path, checkpoint_dir, resume_path=""):
             if AMP:
                 with amp.scale_loss(out['loss'], optimizer) as scaled_loss:
                     scaled_loss.backward()
-                    torch.nn.utils.clip_grad_norm_(amp.master_params(optimizer), 1)
+                torch.nn.utils.clip_grad_norm_(amp.master_params(optimizer), 1)
             else:
                 out['loss'].backward()
                 torch.nn.utils.clip_grad_norm_(model.decoder.parameters(), 1)
@@ -133,6 +133,9 @@ def main(train_config_path, checkpoint_dir, resume_path=""):
         writer.add_scalars('data/loss', val_result['log'])
         records[f'epoch {i}'] = val_result['log']
 
+        with open(str(checkpoint_dir / f"records_elapse.json"), "w") as f:
+            json.dump(records, f, indent=4)
+        
         # early_stopping
         if early_stopping.judge(val_result):
             early_stopping.update(val_result)

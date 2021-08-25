@@ -143,7 +143,7 @@ class VQW2V_RNNDecoder(nn.Module):
         self.encoder.eval()
         self.decoder.train()
         audio, speakers = batch['audio'].to(self.device), batch['speakers'].to(self.device)
-        mu_audio =  aF.mu_law_encoding(audio, self.quantization_channels)
+        mu_audio =  aF.mu_law_encoding(audio, self.quantization_channels).long()
         output = self(audio, mu_audio, speakers)
         loss = F.cross_entropy(output.transpose(1, 2), mu_audio[:, 1:])
         return { 'loss' : loss }
@@ -152,7 +152,7 @@ class VQW2V_RNNDecoder(nn.Module):
         self.encoder.eval()
         self.decoder.eval()
         audio, speakers = batch['audio'].to(self.device), batch['speakers'].to(self.device)
-        mu_audio =  aF.mu_law_encoding(audio, self.quantization_channels)
+        mu_audio =  aF.mu_law_encoding(audio, self.quantization_channels).long()
         with torch.no_grad():
             output = self(audio, mu_audio, speakers)
             loss = F.cross_entropy(output.transpose(1, 2), mu_audio[:, 1:])
