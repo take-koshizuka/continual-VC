@@ -1,5 +1,6 @@
 import torch
 from torch.utils.data import Dataset
+import torch.nn.functional as F
 import re
 import csv
 import json
@@ -7,6 +8,7 @@ import random
 import numpy as np
 import librosa
 from pathlib import Path
+
 
 SPEAKERS = [
     "aew",
@@ -71,10 +73,10 @@ class PseudoWavDataset(Dataset):
             self.metadata = [
                 {
                     'speaker_id' : SPEAKERS.index(speaker_id),
-                    'mu_audio_path' : mu_audio_path,
-                    'idxs_path' : idxs_path
+                    'audio_path' : str(self.root / Path("wav") / Path(filename).with_suffix(".wav")),
+                    'representation_path' : str(self.root / Path("rep") / Path(filename).with_suffix(".npy")),
                 }
-                for speaker_id, mu_audio_path, idxs_path in metadata
+                for speaker_id, filename in metadata
             ]
             self.labels = [ id for id, _ in metadata ]
 
@@ -83,15 +85,15 @@ class PseudoWavDataset(Dataset):
 
     def __getitem__(self, index):
         metadata = self.metadata[index]
-        pre_mu_audio = np.load(metadata['mu_audio_path'])
-        pre_idxs  = np.load(metadata['idxs_path'])
-        pre_idxs1, pre_idxs2 = pre_idxs[:,:,0], pre_idxs[:,:,1]
-
-        # idxとaudioのアラインメント
-
-        return dict(past_mu_audio=torch.LongTensor(pre_mu_audio), 
-                    past_idxs1= pre_idxs1, past_idxs2=pre_idxs2, 
-                    past_speakers=metadata['speaker_id'])
+        audio, _ = librosa.load(metadata['audio_path'], sr=self.sr)
+        idxs  = np.load(metadata['representation_path'])
+        hop_length  = len(audio) // len(idxs) 
+        pos = random.randint(0, (len(audio) // hop_length) - self.sample_frames - 2)
+        audio = audio[pos * hop_length:(pos + self.sample_frames) * hop_length + 1]
+        idxs = idxs[pos : pos + self.sample_frames ,:]
+        return dict(audio=torch.FloatTensor(audio),
+                    idxs=idxs,
+                    peakers=metadata['speaker_id'])
 
 class ConversionDataset(Dataset):
     def __init__(self, root, outdir, synthesis_list_path, sr):
@@ -145,3 +147,12 @@ class Utterance:
                     utterance = line.split('"')[1]
                     filename = line.split(" ")[1]
                     self.filename2utterance[filename] = utterance
+
+def infinite_iter(iterable):
+    it = iter(iterable)
+    while True:
+        try:
+            ret = next(it)
+            yield ret
+        except StopIteration:
+            it = iter(iterable)

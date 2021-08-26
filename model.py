@@ -168,20 +168,23 @@ class VQW2V_RNNDecoder(nn.Module):
             idxs = self.encoder.encode(audio)
             idxs1, idxs2 = idxs[:, :, 0], idxs[:, :, 1]
             output = self.decoder.generate(idxs1, idxs2, speakers, audio.size(-1)) 
-        return output
+        return output, idxs
 
-    def conversion_step(self, batch, batch_idx):
+    def conversion_step(self, batch, batch_idx, rep=False):
         self.encoder.eval()
         self.decoder.eval()
         audio, speakers = batch['source_audio'].to(self.device), batch['target_speaker_id'].to(self.device)
-        output = self.convert(audio, speakers)
-        return dict(
-            cv=output.cpu().detach(), 
+        output, idxs = self.convert(audio, speakers)
+        ret = dict(
+            cv=output.cpu().detach(),
             converted_audio_path=batch['converted_audio_path'],
             target_audio=batch['target_audio'],
             utterance=batch['utterance']
         )
-        
+        if rep:
+            ret['representation'] = idxs.cpu().detach()
+        return ret
+
     def conversion_epoch_end(self, outputs):
         converted_audio_paths = np.array([ out['converted_audio_path'] for out in outputs ]).flatten()
         target_audio = [ audio.cpu().numpy() for out in outputs for audio in out['target_audio'] ]
@@ -245,9 +248,11 @@ class VQW2V_RNNDecoder_PseudoRehearsal(VQW2V_RNNDecoder):
         output = self(audio, mu_audio, speakers)
         loss_fine = F.cross_entropy(output.transpose(1, 2), mu_audio[:, 1:], reduce='none')
 
-        pre_mu_audio, pre_speakers = batch_pre['pre_mu_audio'].to(self.device), batch_pre['pre_speakers'].to(self.device)
-        pre_idxs1, pre_idxs2, = batch_pre['pre_idxs1'].to(self.device), batch_pre['pre_idxs2'].to(self.device)
-        pre_output = self.decoder(pre_mu_audio[:, :-1], pre_idxs1, pre_idxs2, pre_speakers, pre_mu_audio.size(1)-1)
+        pre_audio, pre_speakers = batch_pre['audio'].to(self.device), batch_pre['speakers'].to(self.device)
+        pre_mu_audio = aF.mu_law_encoding(pre_audio, self.quantization_channels)
+        pre_idxs = batch_pre['idxs'].to(self.device)
+        pre_idxs1, pre_idxs2, = pre_idxs[:, : ,0], pre_idxs[:, : ,1]
+        pre_output = self.decoder(pre_mu_audio[:, :-1], pre_idxs1, pre_idxs2, pre_speakers, pre_audio.size(-1)-1)
         loss_pre = F.cross_entropy(pre_output.transpose(1, 2), pre_mu_audio[:, 1:], reduce='none')
         loss = torch.mean(torch.cat([loss_fine, loss_pre]))
 
@@ -256,15 +261,19 @@ class VQW2V_RNNDecoder_PseudoRehearsal(VQW2V_RNNDecoder):
     def validation_step(self,  batch_fine, batch_pre, batch_idx):
         self.encoder.eval()
         self.decoder.eval()
-        audio, speakers = batch_fine['audio'].to(self.device), batch_fine['speakers'].to(self.device)
-        mu_audio =  aF.mu_law_encoding(audio, self.quantization_channels)
-        output = self(audio, mu_audio, speakers)
-        loss_fine = F.cross_entropy(output.transpose(1, 2), mu_audio[:, 1:], reduce='none')
+        with torch.no_grad():
+            audio, speakers = batch_fine['audio'].to(self.device), batch_fine['speakers'].to(self.device)
+            mu_audio =  aF.mu_law_encoding(audio, self.quantization_channels)
+            output = self(audio, mu_audio, speakers)
+            loss_fine = F.cross_entropy(output.transpose(1, 2), mu_audio[:, 1:], reduce='none')
 
-        pre_mu_audio, pre_speakers = batch_pre['pre_mu_audio'].to(self.device), batch_pre['pre_speakers'].to(self.device)
-        pre_idxs1, pre_idxs2, = batch_pre['pre_idxs1'].to(self.device), batch_pre['pre_idxs2'].to(self.device)
-        pre_output = self.decoder(pre_mu_audio[:, :-1], pre_idxs1, pre_idxs2, pre_speakers, pre_mu_audio.size(1)-1)
-        loss_pre = F.cross_entropy(pre_output.transpose(1, 2), pre_mu_audio[:, 1:], reduce='none')
+            pre_audio, pre_speakers = batch_pre['audio'].to(self.device), batch_pre['speakers'].to(self.device)
+            pre_mu_audio = aF.mu_law_encoding(pre_audio, self.quantization_channels)
+            pre_idxs = batch_pre['idxs'].to(self.device)
+            pre_idxs1, pre_idxs2, = pre_idxs[:, : ,0], pre_idxs[:, : ,1]
+            pre_output = self.decoder(pre_mu_audio[:, :-1], pre_idxs1, pre_idxs2, pre_speakers, pre_audio.size(-1)-1)
+            loss_pre = F.cross_entropy(pre_output.transpose(1, 2), pre_mu_audio[:, 1:], reduce='none')
+        
         loss = torch.mean(torch.cat([loss_fine, loss_pre]))
         return { 'val_loss' : loss.unsqueeze(0), 'val_loss_fine' : loss_fine.mean(), 'val_loss_past' : loss_pre.mean() }
 

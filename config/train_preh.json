@@ -9,10 +9,10 @@
         "sample_frames" : 32,
         "hop_length": 160,
         "bits": 8,
-        "train_list_path_fine": "data_list/train_fine.json",
-        "val_list_path_fine": "data_list/val_fine.json",
-        "train_list_path_pre": "data_list/train_pseudo.json",
-        "val_list_path_pre": "data_list/val_pseudo.json"
+        "train_fine_list_path": "data_list/train_fine.json",
+        "val_fine_list_path": "data_list/val_fine.json",
+        "train_pre_list_path": "data_list/train_pseudo.json",
+        "val_pre_list_path": "data_list/val_pseudo.json"
     },
     "encoder" : "checkpoints/vq-wav2vec.pt",
     "decoder_checkpoint" : "checkpoints/pre/best-model.pt",

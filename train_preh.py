@@ -7,10 +7,9 @@ from torch.utils.data import DataLoader
 import torch.optim as optim
 from torch.utils.tensorboard import SummaryWriter
 
-from dataset import WavDataset, PseudoWavDataset
+from dataset import WavDataset, PseudoWavDataset, infinite_iter
 from model import VQW2V_RNNDecoder_PseudoRehearsal
 from utils import EarlyStopping
-from copy import deepcopy
 from tqdm import tqdm
 from pathlib import Path
 import argparse
@@ -40,7 +39,7 @@ def main(train_config_path, checkpoint_dir, resume_path=""):
 
     tr_ds_fine = WavDataset(
         root=cfg['dataset']['folder_in_archive'],
-        data_list_path=cfg['dataset']['train_list_path'],
+        data_list_path=cfg['dataset']['train_fine_list_path'],
         sr=cfg['dataset']['sr'],
         sample_frames=cfg['dataset']['sample_frames'],
         hop_length=cfg['dataset']['hop_length'],
@@ -49,7 +48,7 @@ def main(train_config_path, checkpoint_dir, resume_path=""):
 
     va_ds_fine = WavDataset(
         root=cfg['dataset']['folder_in_archive'],
-        data_list_path=cfg['dataset']['val_list_path'],
+        data_list_path=cfg['dataset']['val_fine_list_path'],
         sr=cfg['dataset']['sr'],
         sample_frames=cfg['dataset']['sample_frames'],
         hop_length=cfg['dataset']['hop_length'],
@@ -68,7 +67,7 @@ def main(train_config_path, checkpoint_dir, resume_path=""):
 
     tr_ds_pre = PseudoWavDataset(
         root=cfg['dataset']['folder_in_archive'],
-        data_list_path=cfg['dataset']['train_list_path'],
+        data_list_path=cfg['dataset']['train_pre_list_path'],
         sr=cfg['dataset']['sr'],
         sample_frames=cfg['dataset']['sample_frames'],
         hop_length=cfg['dataset']['hop_length'],
@@ -77,7 +76,7 @@ def main(train_config_path, checkpoint_dir, resume_path=""):
 
     va_ds_pre = PseudoWavDataset(
         root=cfg['dataset']['folder_in_archive'],
-        data_list_path=cfg['dataset']['val_list_path'],
+        data_list_path=cfg['dataset']['val_pre_list_path'],
         sr=cfg['dataset']['sr'],
         sample_frames=cfg['dataset']['sample_frames'],
         hop_length=cfg['dataset']['hop_length'],
@@ -88,13 +87,13 @@ def main(train_config_path, checkpoint_dir, resume_path=""):
             batch_size=cfg['dataset']['batch_size_pre'],
             shuffle=True,
             drop_last=True)
-    tr_it_pre = iter(tr_dl_pre)
+    tr_it_pre = infinite_iter(tr_dl_pre)
 
     va_pre_bs = len(va_ds_pre) if len(va_ds_pre) <= 40 else 25
     va_dl_pre = DataLoader(va_ds_pre,
             batch_size=va_pre_bs,
             drop_last=True)
-    va_it_pre = iter(va_dl_pre)
+    va_it_pre = infinite_iter(va_dl_pre)
 
     model = VQW2V_RNNDecoder_PseudoRehearsal(cfg['encoder'], cfg['decoder'], device)
     model.to(device)
@@ -138,37 +137,27 @@ def main(train_config_path, checkpoint_dir, resume_path=""):
     for i in tqdm(range(init_epochs, max_epochs + 1)):
         # training phase
         for batch_idx, train_batch_fine in enumerate(tqdm(tr_dl_fine, leave=False)):
-            try:
-                train_batch_pre = next(tr_it_pre) 
-            except StopIteration:
-                tr_it_pre = iter(tr_dl_pre)
-                train_batch_pre = next(tr_it_pre)
-
+            train_batch_pre = next(tr_it_pre)
             optimizer.zero_grad()
             out = model.training_step(train_batch_fine, train_batch_pre, batch_idx)
             if AMP:
                 with amp.scale_loss(out['loss'], optimizer) as scaled_loss:
                     scaled_loss.backward()
-                    torch.nn.utils.clip_grad_norm_(amp.master_params(optimizer), 1)
+                torch.nn.utils.clip_grad_norm_(amp.master_params(optimizer), 1)
             else:
                 out['loss'].backward()
                 torch.nn.utils.clip_grad_norm_(model.decoder.parameters(), 1)
 
             optimizer.step()
+            scheduler.step()
+
             del train_batch_fine
             del train_batch_pre
-
-        scheduler.step()
 
         # validation phase
         outputs = []
         for batch_idx, eval_batch_fine in enumerate(zip(va_dl_fine, leave=False)):
-            try:
-                eval_batch_pre = next(va_it_pre) 
-            except StopIteration:
-                va_it_pre = iter(va_dl_pre)
-                eval_batch_pre = next(va_it_pre)
-
+            eval_batch_pre = next(va_it_pre) 
             out = model.validation_step(eval_batch_fine, eval_batch_pre, batch_idx)
             outputs.append(out)
             del eval_batch_fine
@@ -177,6 +166,8 @@ def main(train_config_path, checkpoint_dir, resume_path=""):
         val_result = model.validation_epoch_end(outputs)
         writer.add_scalars('data/loss', val_result['log'])
 
+        with open(str(checkpoint_dir / f"records_elapse.json"), "w") as f:
+            json.dump(records, f, indent=4)
         # early_stopping
         if early_stopping.judge(val_result):
             early_stopping.update(val_result)

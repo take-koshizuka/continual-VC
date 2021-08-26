@@ -5,10 +5,12 @@ import torch
 from torch.utils.data import DataLoader
 import argparse
 
+import pyloudnorm
 import scipy.io.wavfile as sw
 from dataset import ConversionDataset
 from model import VQW2V_RNNDecoder
 from tqdm import tqdm
+from pathlib import Path
 
 def fix_seed(seed):
     # random
@@ -19,6 +21,14 @@ def fix_seed(seed):
     torch.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
     torch.backends.cudnn.deterministic = True
+
+def get_save_filepath(path):
+    par = Path(path).parent
+    filename = Path(path)
+    converted_audio_path = str(par / "wav" / f"{filename}.wav")
+    representation_path = str(par / "rep" / f"{filename}.npy")
+    return converted_audio_path, representation_path
+    
 
 def main(convert_config_path, checkpoint_path, outdir):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -42,18 +52,26 @@ def main(convert_config_path, checkpoint_path, outdir):
 
     model.eval()
     # validation phase
-    #meter = pyloudnorm.Meter(cfg['dataset']['sr'])
+    meter = pyloudnorm.Meter(cfg['dataset']['sr'])
     for batch_idx, batch in enumerate(tqdm(dl)):
-        out = model.conversion_step(batch, batch_idx)
+        out = model.conversion_step(batch, batch_idx, rep=True)
         batch_size = len(out['cv'])
         for i in range(batch_size):
-            #ref_loudness = meter.integrated_loudness(batch['audio'][j].cpu().detach().numpy())  
+            ref_loudness = meter.integrated_loudness(batch['source_audio'][i].cpu().detach().numpy())
             converted_audio = out['cv'][i].numpy()
-            #output_loudness = meter.integrated_loudness(converted_audio)
-            #output = pyloudnorm.normalize.loudness(output, output_loudness, ref_loudness)
-            # save
-            sw.write(filename=out['converted_audio_path'][i], rate=cfg['dataset']['sr'], data=converted_audio)
+            converted_audio = converted_audio / np.abs(converted_audio).max() * 0.999
+            output_loudness = meter.integrated_loudness(converted_audio)
+            converted_audio = pyloudnorm.normalize.loudness(converted_audio, output_loudness, ref_loudness)
+
+            converted_audio_path, representation_path = get_save_filepath(out['converted_audio_path'][i])
+            
+            # save pseudo speech data
+            sw.write(filename=converted_audio_path, rate=cfg['dataset']['sr'], data=converted_audio)
         
+            rep = out['representation'][i].numpy()
+            # save intermediate representation
+            np.save(representation_path, rep)
+
         del out
         del batch
 
