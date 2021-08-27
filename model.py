@@ -195,7 +195,7 @@ class VQW2V_RNNDecoder(nn.Module):
         wer = WordErrorRate()
         cer = CharErrorRate()
 
-        all_results = []
+        all_logs = []
 
         eval_num = len(converted_audio_paths)
         for i in tqdm(range(eval_num)):
@@ -210,7 +210,7 @@ class VQW2V_RNNDecoder(nn.Module):
             wer_value = wer.calculate_metric(transcription, utterance)
             cer_value = cer.calculate_metric(transcription, utterance)
 
-            all_results.append({ 
+            all_logs.append({ 
                 'converted_audio_path' : converted_audio_path,
                 'reference' : utterance,
                 'transcription' : transcription,
@@ -228,8 +228,8 @@ class VQW2V_RNNDecoder(nn.Module):
         avg_wer = wer.compute()
         avg_cer = cer.compute()
 
-        logs = { 'avg_mcd' : avg_mcd, 'avg_wer' : avg_wer, 'avg_cer' : avg_cer, 'all_results' : all_results }
-        return { 'logs' : logs }
+        logs = { 'avg_mcd' : avg_mcd, 'avg_wer' : avg_wer, 'avg_cer' : avg_cer }
+        return { 'logs' : logs 'all_logs' : all_logs }
     
     def state_dict(self, optimizer, scheduler):
         dic =  {

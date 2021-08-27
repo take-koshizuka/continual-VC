@@ -2,6 +2,7 @@ import random
 import json
 import numpy as np
 import torch
+import pandas as pd
 from torch.utils.data import DataLoader
 import argparse
 
@@ -66,6 +67,10 @@ def main(convert_config_path, checkpoint_path, outdir):
     results_path = str(Path(outdir) / "results.json")
     with open(results_path, 'w') as f:
         json.dump(result['logs'], f, indent=4)
+    
+    all_results_path = str(Path(outdir) / "all_results.csv")
+    df = pd.DataFrame(result['all_logs'])
+    df.to_csv(all_results_path, index_col=0)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
