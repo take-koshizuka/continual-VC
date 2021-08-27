@@ -43,5 +43,7 @@ RUN pip install tensorboard \
     && pip install fastdtw \
     && pip install pyloudnorm
 
-# Set the default command to python3
-CMD ["python3"]
+RUN git clone https://github.com/take-koshizuka/continual-VC.git
+
+WORKDIR /app/continual-VC
+CMD ["/bin/bash"]

@@ -1,10 +1,10 @@
 {
     "seed" : 57,
-    "epochs": 2750,
+    "epochs": 500,
     "checkpoint_period": 500,
     "dataset" : {
         "folder_in_archive": "ARCTIC",
-        "batch_size" : 32,
+        "batch_size" : 50,
         "sr" : 16000,
         "sample_frames" : 32,
         "hop_length": 160,

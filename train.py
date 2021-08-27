@@ -60,7 +60,7 @@ def main(train_config_path, checkpoint_dir, resume_path=""):
             shuffle=True,
             drop_last=True)
     
-    va_bs = len(va_ds) if len(va_ds) <= 40 else 25
+    va_bs = len(va_ds) if len(va_ds) <= 64 else 25
     va_dl = DataLoader(va_ds,
             batch_size=va_bs,
             drop_last=True)
@@ -89,7 +89,7 @@ def main(train_config_path, checkpoint_dir, resume_path=""):
 
     if not cfg['decoder_checkpoint'] == "":
         checkpoint = torch.load(cfg['decoder_checkpoint'], map_location=lambda storage, loc: storage)
-        model.load_model(checkpoint)
+        model.load_model(checkpoint, amp=False)
         model.to(device)
 
     if not resume_path == "":

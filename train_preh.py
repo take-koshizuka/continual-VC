@@ -60,7 +60,7 @@ def main(train_config_path, checkpoint_dir, resume_path=""):
             shuffle=True,
             drop_last=True)
 
-    va_fine_bs = len(va_ds_fine) if len(va_ds_fine) <= 40 else 25
+    va_fine_bs = len(va_ds_fine) if len(va_ds_fine) <= 32 else 25
     va_dl_fine = DataLoader(va_ds_fine,
             batch_size=va_fine_bs,
             drop_last=True)
@@ -89,7 +89,7 @@ def main(train_config_path, checkpoint_dir, resume_path=""):
             drop_last=True)
     tr_it_pre = infinite_iter(tr_dl_pre)
 
-    va_pre_bs = len(va_ds_pre) if len(va_ds_pre) <= 40 else 25
+    va_pre_bs = len(va_ds_pre) if len(va_ds_pre) <= 32 else 25
     va_dl_pre = DataLoader(va_ds_pre,
             batch_size=va_pre_bs,
             drop_last=True)
@@ -124,7 +124,7 @@ def main(train_config_path, checkpoint_dir, resume_path=""):
 
     if not resume_path == "":
         checkpoint = torch.load(resume_path, map_location=lambda storage, loc: storage)
-        model.load_model(checkpoint)
+        model.load_model(checkpoint, amp=False)
         optimizer.load_state_dict(checkpoint["optimizer"])
         scheduler.load_state_dict(checkpoint["scheduler"])
         init_epochs = checkpoint['epochs']
