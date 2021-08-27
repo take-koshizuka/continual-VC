@@ -118,8 +118,8 @@ def main(train_config_path, checkpoint_dir, resume_path=""):
                 torch.nn.utils.clip_grad_norm_(model.decoder.parameters(), 1)
 
             optimizer.step()
-            scheduler.step()
             del train_batch
+        scheduler.step()
 
         # validation phase
         outputs = []
