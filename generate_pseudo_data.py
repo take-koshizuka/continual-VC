@@ -47,7 +47,7 @@ def main(convert_config_path, checkpoint_path, outdir):
         outdir=outdir,
         synthesis_list_path=cfg['dataset']['synthesis_list_path'],
         sr=cfg['dataset']['sr'],
-        unlabeled=unlabeled
+        unlabeled=True
     )
     dl = DataLoader(ds, batch_size=1)
 
