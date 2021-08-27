@@ -33,7 +33,7 @@ class EarlyStopping(object):
         self.monitor_values[self.monitor] = values[self.monitor]
 
 class Wav2Letter:
-    def __init__(self):
+    def __init__(self, device):
         if not os.path.exists(PATH_TO_ASR):
             original = Wav2Vec2ForCTC.from_pretrained("facebook/wav2vec2-large-960h-lv60-self")
             model = import_huggingface_model(original)
@@ -42,11 +42,14 @@ class Wav2Letter:
         self.tokenizer = Wav2Vec2Tokenizer.from_pretrained("facebook/wav2vec2-base-960h")
         self.model = wav2vec2_large_lv60k(num_out=32)
         self.model.load_state_dict(torch.load(PATH_TO_ASR))
+        self.model.to(device)
+        self.device = device
         
     def decode(self, audio):
         input_values = self.tokenizer(audio, return_tensors = "pt").input_values
+        input_values = input_values.to(self.device)
         logits = self.model(input_values)[0]
-        prediction = torch.argmax(logits, dim = -1)
+        prediction = torch.argmax(logits, dim = -1).cpu()
         transcription = self.tokenizer.batch_decode(prediction)[0]
         return transcription
 
@@ -107,7 +110,6 @@ class CharErrorRate:
     def cer_calc(self, s1, s2):
         s1, s2, = s1.replace(' ', ''), s2.replace(' ', '')
         return Lev.distance(s1, s2)
-
 
 class WordErrorRate:
     def __init__(self):

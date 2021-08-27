@@ -190,13 +190,13 @@ class VQW2V_RNNDecoder(nn.Module):
         converted_audio_paths = np.array([ out['converted_audio_path'] for out in outputs ]).flatten()
         target_audio = [ out['target_audio'].cpu().numpy() for out in outputs ]
         utterances = np.array([ out['utterance'] for out in outputs ]).flatten()
-        w2l = Wav2Letter()
+        w2l = Wav2Letter(self.device)
         mcd = MelCepstralDistortion()
         wer = WordErrorRate()
         cer = CharErrorRate()
 
         eval_num = len(converted_audio_paths)
-        for i in range(eval_num):
+        for i in tqdm(range(eval_num)):
             converted_audio_path = converted_audio_paths[i]
             tar = target_audio[i]
             utterance = utterances[i].lower()
@@ -206,6 +206,11 @@ class VQW2V_RNNDecoder(nn.Module):
             mcd.calculate_metric(cv, tar)
             wer.calculate_metric(transcription, utterance)
             cer.calculate_metric(transcription, utterance)
+
+            del tar
+            del utterance
+            del cv
+            del transcription
 
         avg_mcd = mcd.compute()
         avg_wer = wer.compute()
@@ -247,14 +252,14 @@ class VQW2V_RNNDecoder_PseudoRehearsal(VQW2V_RNNDecoder):
         audio, speakers = batch_fine['audio'].to(self.device), batch_fine['speakers'].to(self.device)
         mu_audio =  aF.mu_law_encoding(audio, self.quantization_channels)
         output = self(audio, mu_audio, speakers)
-        loss_fine = F.cross_entropy(output.transpose(1, 2), mu_audio[:, 1:], reduce='none')
+        loss_fine = F.cross_entropy(output.transpose(1, 2), mu_audio[:, 1:], reduction='none')
 
         pre_audio, pre_speakers = batch_pre['audio'].to(self.device), batch_pre['speakers'].to(self.device)
         pre_mu_audio = aF.mu_law_encoding(pre_audio, self.quantization_channels)
         pre_idxs = batch_pre['idxs'].to(self.device)
         pre_idxs1, pre_idxs2, = pre_idxs[:, : ,0], pre_idxs[:, : ,1]
         pre_output = self.decoder(pre_mu_audio[:, :-1], pre_idxs1, pre_idxs2, pre_speakers, pre_audio.size(-1)-1)
-        loss_pre = F.cross_entropy(pre_output.transpose(1, 2), pre_mu_audio[:, 1:], reduce='none')
+        loss_pre = F.cross_entropy(pre_output.transpose(1, 2), pre_mu_audio[:, 1:], reduction='none')
         loss = torch.mean(torch.cat([loss_fine, loss_pre]))
 
         return { 'loss' : loss, 'loss_fine' : loss_fine.mean(), 'loss_past' : loss_pre.mean() }
@@ -266,17 +271,17 @@ class VQW2V_RNNDecoder_PseudoRehearsal(VQW2V_RNNDecoder):
             audio, speakers = batch_fine['audio'].to(self.device), batch_fine['speakers'].to(self.device)
             mu_audio =  aF.mu_law_encoding(audio, self.quantization_channels)
             output = self(audio, mu_audio, speakers)
-            loss_fine = F.cross_entropy(output.transpose(1, 2), mu_audio[:, 1:], reduce='none')
+            loss_fine = F.cross_entropy(output.transpose(1, 2), mu_audio[:, 1:], reduction='none')
 
             pre_audio, pre_speakers = batch_pre['audio'].to(self.device), batch_pre['speakers'].to(self.device)
             pre_mu_audio = aF.mu_law_encoding(pre_audio, self.quantization_channels)
             pre_idxs = batch_pre['idxs'].to(self.device)
             pre_idxs1, pre_idxs2, = pre_idxs[:, : ,0], pre_idxs[:, : ,1]
             pre_output = self.decoder(pre_mu_audio[:, :-1], pre_idxs1, pre_idxs2, pre_speakers, pre_audio.size(-1)-1)
-            loss_pre = F.cross_entropy(pre_output.transpose(1, 2), pre_mu_audio[:, 1:], reduce='none')
+            loss_pre = F.cross_entropy(pre_output.transpose(1, 2), pre_mu_audio[:, 1:], reduction='none')
         
         loss = torch.mean(torch.cat([loss_fine, loss_pre]))
-        return { 'val_loss' : loss.unsqueeze(0), 'val_loss_fine' : loss_fine.mean(), 'val_loss_past' : loss_pre.mean() }
+        return { 'val_loss' : loss.unsqueeze(0), 'val_loss_fine' : loss_fine.mean().unsqueeze(0), 'val_loss_past' : loss_pre.mean().unsqueeze(0) }
 
     def validation_epoch_end(self, outputs):
         avg_loss = torch.mean(torch.cat([ out['val_loss'] for out in outputs ], dim=0)).item()

@@ -157,7 +157,7 @@ def main(train_config_path, checkpoint_dir, resume_path=""):
 
         # validation phase
         outputs = []
-        for batch_idx, eval_batch_fine in enumerate(zip(va_dl_fine, leave=False)):
+        for batch_idx, eval_batch_fine in enumerate(tqdm(va_dl_fine, leave=False)):
             eval_batch_pre = next(va_it_pre) 
             out = model.validation_step(eval_batch_fine, eval_batch_pre, batch_idx)
             outputs.append(out)

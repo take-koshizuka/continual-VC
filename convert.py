@@ -50,7 +50,6 @@ def main(convert_config_path, checkpoint_path, outdir):
     meter = pyloudnorm.Meter(cfg['dataset']['sr'])
     for batch_idx, batch in enumerate(tqdm(dl)):
         out = model.conversion_step(batch, batch_idx)
-        batch_size = len(out['cv'])
         ref_loudness = meter.integrated_loudness(batch['source_audio'][0].cpu().detach().numpy())  
         converted_audio = out['cv'].numpy()
         converted_audio = converted_audio / np.abs(converted_audio).max() * 0.999

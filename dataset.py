@@ -61,14 +61,14 @@ class WavDataset(Dataset):
         return dict(audio=torch.FloatTensor(audio), speakers=metadata['speaker_id'])
 
 class PseudoWavDataset(Dataset):
-    def __init__(self, root, pseudo_data_list_path, sr, sample_frames, hop_length, bits):
+    def __init__(self, root, data_list_path, sr, sample_frames, hop_length, bits):
         self.root = Path(root)
         self.sr = sr
         self.sample_frames = sample_frames
         self.hop_length = hop_length
         self.bits = bits
 
-        with open(pseudo_data_list_path) as file:
+        with open(data_list_path) as file:
             metadata = json.load(file)
             self.metadata = [
                 {
@@ -87,13 +87,12 @@ class PseudoWavDataset(Dataset):
         metadata = self.metadata[index]
         audio, _ = librosa.load(metadata['audio_path'], sr=self.sr)
         idxs  = np.load(metadata['representation_path'])
-        hop_length  = len(audio) // len(idxs) 
-        pos = random.randint(0, (len(audio) // hop_length) - self.sample_frames - 2)
-        audio = audio[pos * hop_length:(pos + self.sample_frames) * hop_length + 1]
+        pos = random.randint(0, (len(audio) // self.hop_length) - self.sample_frames - 2)
+        audio = audio[pos * self.hop_length:(pos + self.sample_frames) * self.hop_length + 1]
         idxs = idxs[pos : pos + self.sample_frames ,:]
         return dict(audio=torch.FloatTensor(audio),
                     idxs=idxs,
-                    peakers=metadata['speaker_id'])
+                    speakers=metadata['speaker_id'])
 
 class ConversionDataset(Dataset):
     def __init__(self, root, outdir, synthesis_list_path, sr, unlabeled=False):
