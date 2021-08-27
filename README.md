@@ -32,7 +32,7 @@ This is the official implementation of the paper "Fine-tuning pre-trained voice 
 
 6. (Optional)  Download [trained decoder parameters](https://github.com/take-koshizuka/continual-VC/releases/tag/v1.0.0). 
     ```bash
-    wget https://github.com/take-koshizuka/continual-VC/releases/download/v1.0.0/checkpoints.zip && unzip -u checkpoints.zip
+    wget https://github.com/take-koshizuka/continual-VC/releases/download/v1.0.0/checkpoints.zip && unzip -u checkpoints.zip && rm checkpoints.zip
     ```
 
 ## 2. Training
@@ -56,7 +56,7 @@ python3 train.py -c config/train_reh.json -d checkpoints/reh
 ### 2.4 Pseudo-rehearsal
 1. generate pseudo speech dataset
    ```bash
-   python3 generate_pseudo_data.py -c config/generate_pseudo_speech.json -p checkpoints/pre/best-model.pt -d outputs/pseudo_data
+   python3 generate_pseudo_data.py -c config/generate_pseudo_speech.json -p checkpoints/pre/best-model.pt -d pseudo_speech
    ```
 
 2. training 
@@ -65,13 +65,15 @@ python3 train.py -c config/train_reh.json -d checkpoints/reh
     ```
 
 ## 3. Testing (Conversion)
-### 3.1 Evaluation for the pre-trained target speakers
+WER and CER are computed with  [Transformer-based ASR model](https://zenodo.org/record/3966501#.YP-znlMzZwo) in our paper. However, in this implementation, we use [wav2vec2.0 model](https://pytorch.org/audio/stable/models.html#wav2vec2-large-lv60k) for simplicity of environment setup.
 
+### 3.1 Evaluation for the pre-trained target speakers (aew, lnh, awb, ljm)
 ```bash
 python3 convert.py -c config/test_pre.json [-p] /path/to/checkpoints [-d] /path/to/output_dir
 ```
 
-### 3.2 Evaluation for the fine-tuned target speakers 
+### 3.2 Evaluation for the fine-tuned target speakers (rms, slt)
 ```bash
 python3 convert.py -c config/test_fine.json [-p] /path/to/checkpoints [-d] /path/to/output_dir
 ```
+
