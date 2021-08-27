@@ -38,11 +38,12 @@ This is the official implementation of the paper "Fine-tuning pre-trained voice 
 python3 train.py -c config/train_pre.json -d checkpoints/pre
 ```
 
+The path of the pre-trained model is set in configuration file.
+
 ### 2.2 Standard fine-tuning
 ```bash
 python3 train.py -c config/train_fine.json -d checkpoints/fine-tuning
 ```
-The path of the pre-trained model is set in configuration file.
 
 ### 2.3 Rehearsal
 ```bash
@@ -52,9 +53,22 @@ python3 train.py -c config/train_reh.json -d checkpoints/reh
 ### 2.4 Pseudo-rehearsal
 1. generate pseudo speech dataset
    ```bash
-   python3 generate_pseudo_data.py
+   python3 generate_pseudo_data.py -c config/generate_pseudo_speech.json -p checkpoints/pre/best-model.pt -d outputs/pseudo_data
    ```
-2. 
+
+2. training 
+    ```bash
+    python3 train_preh.py -c config/train_preh.json -d checkpoints/preh
+    ```
 
 ## 3. Testing (Conversion)
+### 3.1 Evaluation for the pre-trained target speakers
 
+```bash
+python3 convert.py -c config/test_pre.json [-p] /path/to/checkpoints [-d] /path/to/output_dir
+```
+
+### 3.2 Evaluation for the fine-tuned target speakers 
+```bash
+python3 convert.py -c config/test_fine.json [-p] /path/to/checkpoints [-d] /path/to/output_dir
+```
