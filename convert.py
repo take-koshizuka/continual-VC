@@ -70,7 +70,7 @@ def main(convert_config_path, checkpoint_path, outdir):
     
     all_results_path = str(Path(outdir) / "all_results.csv")
     df = pd.DataFrame(result['all_logs'])
-    df.to_csv(all_results_path, index_col=0)
+    df.to_csv(all_results_path)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()

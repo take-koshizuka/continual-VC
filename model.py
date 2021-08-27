@@ -214,9 +214,9 @@ class VQW2V_RNNDecoder(nn.Module):
                 'converted_audio_path' : converted_audio_path,
                 'reference' : utterance,
                 'transcription' : transcription,
-                'mcd_value' : mcd_value,
-                'wer_value' : wer_value,
-                'cer_value' : cer_value
+                'mcd' : mcd_value,
+                'wer' : wer_value,
+                'cer' : cer_value
             })
 
             del tar
@@ -229,7 +229,7 @@ class VQW2V_RNNDecoder(nn.Module):
         avg_cer = cer.compute()
 
         logs = { 'avg_mcd' : avg_mcd, 'avg_wer' : avg_wer, 'avg_cer' : avg_cer }
-        return { 'logs' : logs 'all_logs' : all_logs }
+        return { 'logs' : logs, 'all_logs' : all_logs }
     
     def state_dict(self, optimizer, scheduler):
         dic =  {
