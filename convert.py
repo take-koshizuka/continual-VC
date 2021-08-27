@@ -37,7 +37,7 @@ def main(convert_config_path, checkpoint_path, outdir):
         sr=cfg['dataset']['sr']
     )
     
-    dl = DataLoader(ds, batch_size=cfg['dataset']['batch_size'])
+    dl = DataLoader(ds, batch_size=1)
 
     model = VQW2V_RNNDecoder(cfg['encoder'], cfg['decoder'], device)
     checkpoint = torch.load(checkpoint_path, map_location=lambda storage, loc: storage)
@@ -51,14 +51,13 @@ def main(convert_config_path, checkpoint_path, outdir):
     for batch_idx, batch in enumerate(tqdm(dl)):
         out = model.conversion_step(batch, batch_idx)
         batch_size = len(out['cv'])
-        for i in range(batch_size):
-            ref_loudness = meter.integrated_loudness(batch['source_audio'][i].cpu().detach().numpy())  
-            converted_audio = out['cv'][i].numpy()
-            converted_audio = converted_audio / np.abs(converted_audio).max() * 0.999
-            output_loudness = meter.integrated_loudness(converted_audio)
-            converted_audio = pyloudnorm.normalize.loudness(converted_audio, output_loudness, ref_loudness)
-            # save
-            sw.write(filename=out['converted_audio_path'][i], rate=cfg['dataset']['sr'], data=converted_audio)
+        ref_loudness = meter.integrated_loudness(batch['source_audio'][0].cpu().detach().numpy())  
+        converted_audio = out['cv'].numpy()
+        converted_audio = converted_audio / np.abs(converted_audio).max() * 0.999
+        output_loudness = meter.integrated_loudness(converted_audio)
+        converted_audio = pyloudnorm.normalize.loudness(converted_audio, output_loudness, ref_loudness)
+        # save
+        sw.write(filename=out['converted_audio_path'], rate=cfg['dataset']['sr'], data=converted_audio)
         
         del out['cv']
         outputs.append(out)
@@ -68,7 +67,6 @@ def main(convert_config_path, checkpoint_path, outdir):
     results_path = str(Path(outdir) / "results.json")
     with open(results_path, 'w') as f:
         json.dump(result['logs'], f, indent=4)
-
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()

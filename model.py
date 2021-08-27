@@ -110,8 +110,7 @@ class RnnDecoder(nn.Module):
         h = torch.zeros(batch_size, self.rnn_channels, device=z.device)
         x = torch.zeros(batch_size, device=z.device).fill_(self.quantization_channels // 2).long()
         unbind = torch.unbind(z, dim=1)
-        outputs = torch.empty(batch_size, len(unbind))
-
+        outputs = torch.empty(len(unbind))
         for i, m in enumerate(tqdm(unbind, leave=False)):
             x = self.mu_embedding(x)
             h = cell(torch.cat((x, m), dim=1), h)
@@ -119,7 +118,7 @@ class RnnDecoder(nn.Module):
             logits = self.fc2(x)
             dist = Categorical(logits=logits)
             x = dist.sample()
-            outputs[:, i] = x.float()
+            outputs[i] = x.squeeze().float()
         outputs = aF.mu_law_decoding(outputs.float(), self.quantization_channels)
         return outputs
 
@@ -171,23 +170,25 @@ class VQW2V_RNNDecoder(nn.Module):
         return output, idxs
 
     def conversion_step(self, batch, batch_idx, rep=False):
+        # check batch size is 1.
+        assert len(batch) == 1, "Batch size in the conversion step must be 1."
         self.encoder.eval()
         self.decoder.eval()
         audio, speakers = batch['source_audio'].to(self.device), batch['target_speaker_id'].to(self.device)
         output, idxs = self.convert(audio, speakers)
         ret = dict(
             cv=output.cpu().detach(),
-            converted_audio_path=batch['converted_audio_path'],
-            target_audio=batch['target_audio'],
-            utterance=batch['utterance']
+            converted_audio_path=batch['converted_audio_path'][0],
+            target_audio=batch['target_audio'][0],
+            utterance=batch['utterance'][0]
         )
         if rep:
-            ret['representation'] = idxs.cpu().detach()
+            ret['representation'] = idxs[0].cpu().detach()
         return ret
 
     def conversion_epoch_end(self, outputs):
         converted_audio_paths = np.array([ out['converted_audio_path'] for out in outputs ]).flatten()
-        target_audio = [ audio.cpu().numpy() for out in outputs for audio in out['target_audio'] ]
+        target_audio = [ out['target_audio'].cpu().numpy() for out in outputs ]
         utterances = np.array([ out['utterance'] for out in outputs ]).flatten()
         w2l = Wav2Letter()
         mcd = MelCepstralDistortion()

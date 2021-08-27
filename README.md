@@ -30,9 +30,12 @@ This is the official implementation of the paper "Fine-tuning pre-trained voice 
     ```
     --root: Path to the directory where the dataset and the checkpoint are found or downloaded. (default: ./)
 
+6. (Optional)  Download [trained decoder parameters](https://github.com/take-koshizuka/continual-VC/releases/tag/v1.0.0). 
+    ```bash
+    wget https://github.com/take-koshizuka/continual-VC/releases/download/v1.0.0/checkpoints.zip && unzip -u checkpoints.zip
+    ```
 
 ## 2. Training
-
 ### 2.1 Pre-training with VC task
 ```bash
 python3 train.py -c config/train_pre.json -d checkpoints/pre

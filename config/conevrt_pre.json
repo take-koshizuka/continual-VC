@@ -2,9 +2,8 @@
     "seed" : 57,
     "dataset" : {
         "folder_in_archive": "ARCTIC",
-        "batch_size" : 1,
         "sr" : 16000,
-        "synthesis_list_path": "config/test_pre.json"
+        "synthesis_list_path": "data_list/test_pre.json"
     },
     "encoder" : "checkpoints/vq-wav2vec.pt",
     "decoder" : {

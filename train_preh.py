@@ -66,7 +66,7 @@ def main(train_config_path, checkpoint_dir, resume_path=""):
             drop_last=True)
 
     tr_ds_pre = PseudoWavDataset(
-        root=cfg['dataset']['folder_in_archive'],
+        root=cfg['dataset']['folder_pseudo_speech'],
         data_list_path=cfg['dataset']['train_pre_list_path'],
         sr=cfg['dataset']['sr'],
         sample_frames=cfg['dataset']['sample_frames'],
@@ -75,7 +75,7 @@ def main(train_config_path, checkpoint_dir, resume_path=""):
     )
 
     va_ds_pre = PseudoWavDataset(
-        root=cfg['dataset']['folder_in_archive'],
+        root=cfg['dataset']['folder_pseudo_speech'],
         data_list_path=cfg['dataset']['val_pre_list_path'],
         sr=cfg['dataset']['sr'],
         sample_frames=cfg['dataset']['sample_frames'],
@@ -119,12 +119,12 @@ def main(train_config_path, checkpoint_dir, resume_path=""):
 
     if not cfg['decoder_checkpoint'] == "":
         checkpoint = torch.load(cfg['decoder_checkpoint'], map_location=lambda storage, loc: storage)
-        model.load_model(checkpoint)
+        model.load_model(checkpoint, amp=False)
         model.to(device)
 
     if not resume_path == "":
         checkpoint = torch.load(resume_path, map_location=lambda storage, loc: storage)
-        model.load_model(checkpoint, amp=False)
+        model.load_model(checkpoint)
         optimizer.load_state_dict(checkpoint["optimizer"])
         scheduler.load_state_dict(checkpoint["scheduler"])
         init_epochs = checkpoint['epochs']
