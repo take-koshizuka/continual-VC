@@ -171,10 +171,10 @@ class VQW2V_RNNDecoder(nn.Module):
 
     def conversion_step(self, batch, batch_idx, rep=False):
         # check batch size is 1.
-        assert len(batch) == 1, "Batch size in the conversion step must be 1."
         self.encoder.eval()
         self.decoder.eval()
         audio, speakers = batch['source_audio'].to(self.device), batch['target_speaker_id'].to(self.device)
+        assert len(audio) == 1, "Batch size in the conversion step must be 1."
         output, idxs = self.convert(audio, speakers)
         ret = dict(
             cv=output.cpu().detach(),
@@ -195,17 +195,29 @@ class VQW2V_RNNDecoder(nn.Module):
         wer = WordErrorRate()
         cer = CharErrorRate()
 
+        all_results = []
+
         eval_num = len(converted_audio_paths)
         for i in tqdm(range(eval_num)):
             converted_audio_path = converted_audio_paths[i]
             tar = target_audio[i]
-            utterance = utterances[i].lower()
+            utterance = utterances[i].lower().replace(',', '').replace('.', '')
             _, cv = sw.read(converted_audio_path)
 
-            transcription = w2l.decode(cv).lower()
-            mcd.calculate_metric(cv, tar)
-            wer.calculate_metric(transcription, utterance)
-            cer.calculate_metric(transcription, utterance)
+            transcription = w2l.decode(cv).lower().replace(',', '').replace('.', '')
+            
+            mcd_value = mcd.calculate_metric(cv, tar)
+            wer_value = wer.calculate_metric(transcription, utterance)
+            cer_value = cer.calculate_metric(transcription, utterance)
+
+            all_results.append({ 
+                'converted_audio_path' : converted_audio_path,
+                'reference' : utterance,
+                'transcription' : transcription,
+                'mcd_value' : mcd_value,
+                'wer_value' : wer_value,
+                'cer_value' : cer_value
+            })
 
             del tar
             del utterance
@@ -216,7 +228,7 @@ class VQW2V_RNNDecoder(nn.Module):
         avg_wer = wer.compute()
         avg_cer = cer.compute()
 
-        logs = { 'avg_mcd' : avg_mcd, 'avg_wer' : avg_wer, 'avg_cer' : avg_cer }
+        logs = { 'avg_mcd' : avg_mcd, 'avg_wer' : avg_wer, 'avg_cer' : avg_cer, 'all_results' : all_results }
         return { 'logs' : logs }
     
     def state_dict(self, optimizer, scheduler):

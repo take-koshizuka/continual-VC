@@ -72,6 +72,7 @@ class MelCepstralDistortion:
         mcd_inst, n_frames = self.mcd_calc(wav, wav_ref)
         self.mcd += mcd_inst
         self.n_frames += n_frames
+        return mcd_inst / n_frames
 
     def compute(self):
         mcd = float(self.mcd) / self.n_frames
@@ -102,6 +103,7 @@ class CharErrorRate:
         cer_inst = self.cer_calc(transcript, reference)
         self.cer += cer_inst
         self.n_chars += len(reference.replace(' ', ''))
+        return cer_inst / len(reference.replace(' ', ''))
 
     def compute(self):
         cer = float(self.cer) / self.n_chars
@@ -120,6 +122,7 @@ class WordErrorRate:
         wer_inst = self.wer_calc(transcript, reference)
         self.wer += wer_inst
         self.n_words += len(reference.split())
+        return wer_inst / len(reference.split())
 
     def compute(self):
         wer = float(self.wer) / self.n_words

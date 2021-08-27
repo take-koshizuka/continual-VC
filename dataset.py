@@ -86,6 +86,7 @@ class PseudoWavDataset(Dataset):
     def __getitem__(self, index):
         metadata = self.metadata[index]
         audio, _ = librosa.load(metadata['audio_path'], sr=self.sr)
+        audio = audio / np.abs(audio).max() * 0.999
         idxs  = np.load(metadata['representation_path'])
         pos = random.randint(0, (len(audio) // self.hop_length) - self.sample_frames - 2)
         audio = audio[pos * self.hop_length:(pos + self.sample_frames) * self.hop_length + 1]
