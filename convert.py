@@ -80,9 +80,10 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    # default
-    # * args. = "config/convert_config.json"
-    # * args.path = "checkpoints/best_model.pt"
-    # * args.res = ""
+    ## example
+    # args.config = "config/convert_fine.json"
+    # args.path = "checkpoints/fine/best-model.pt"
+    # args.outdir = "outputs/fine"
+    ##
 
     main(args.config, args.path, args.outdir)

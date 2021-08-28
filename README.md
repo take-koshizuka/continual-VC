@@ -38,7 +38,7 @@ This is the official implementation of the paper "Fine-tuning pre-trained voice 
 ## 2. Training
 ### 2.1 Pre-training with VC task
 ```bash
-python3 train.py -c config/train_pre.json -d checkpoints/pre
+python3 train.py -c config/train_baseline493.json -d checkpoints/baseline493
 ```
 
 The path of the pre-trained model is set in configuration file.
@@ -56,7 +56,7 @@ python3 train.py -c config/train_reh.json -d checkpoints/reh
 ### 2.4 Pseudo-rehearsal
 1. generate pseudo speech dataset
    ```bash
-   python3 generate_pseudo_data.py -c config/generate_pseudo_speech.json -p checkpoints/pre/best-model.pt -d pseudo_speech
+   python3 generate_pseudo_data.py -c config/generate_pseudo_speech.json -p checkpoints/baseline493/best-model.pt -d pseudo_speech
    ```
 
 2. training 

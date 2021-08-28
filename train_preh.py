@@ -199,10 +199,9 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    ## default
+    ## example
     # args.config = "config/train_preh.json"
-    # args.dir = "checkpoints/exp"
-    # args.resume = ""
+    # args.dir = "checkpoints/preh"
     ##
 
     main(args.config, Path(args.dir), args.resume)

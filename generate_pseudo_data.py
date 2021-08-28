@@ -88,9 +88,10 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    # default
-    # * args. = "config/convert_config.json"
-    # * args.path = "checkpoints/best_model.pt"
-    # * args.res = ""
+    ## example
+    # args.config = "config/convert_pre.json"
+    # args.path = "checkpoints/baseline493/best-model.pt"
+    # args.outdir = "pseudo_speech"
+    ##
 
     main(args.config, args.path, args.outdir)

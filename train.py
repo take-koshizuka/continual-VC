@@ -165,10 +165,10 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    ## default
-    # args.config = "config/train_config.json"
-    # args.dir = "checkpoints/exp"
-    # args.resume = ""
+    ## example
+    # args.config = "config/train_fine.json"
+    # args.dir = "checkpoints/fine"
+    # args.resume = "checkpoints/baseline493/best-model.pt"
     ##
 
     main(args.config, Path(args.dir), args.resume)
