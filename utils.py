@@ -6,10 +6,12 @@ from transformers import Wav2Vec2ForCTC, Wav2Vec2Tokenizer
 import numpy as np
 import re
 import pysptk
+import jiwer
 import pyworld as pw
 import Levenshtein as Lev
 from scipy.spatial.distance import euclidean
 from fastdtw import fastdtw
+
 
 PATH_TO_ASR = "checkpoints/wav2vec2-base-960h.pt"
 
@@ -93,6 +95,18 @@ class MelCepstralDistortion:
         n_frames = len(diff2sum)
         return mcd_value * n_frames, n_frames
 
+def preprocess(text):
+    transformation = jiwer.Compose([
+        jiwer.ToLowerCase(),
+        jiwer.ExpandCommonEnglishContractions(),
+        jiwer.RemovePunctuation(),
+        jiwer.RemoveMultipleSpaces(),
+        jiwer.RemoveWhiteSpace(replace_by_space=True),
+        jiwer.SentencesToListOfWords(word_delimiter=" "),
+        jiwer.RemoveEmptyStrings(),
+    ])
+    words_list = transformation(text)
+    return " ".join(words_list)
 
 class CharErrorRate:
     def __init__(self):

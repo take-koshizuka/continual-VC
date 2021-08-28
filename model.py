@@ -10,7 +10,7 @@ from tqdm import tqdm
 from copy import deepcopy
 import scipy.io.wavfile as sw
 import numpy as np
-from utils import Wav2Letter, MelCepstralDistortion, WordErrorRate, CharErrorRate
+from utils import Wav2Letter, MelCepstralDistortion, WordErrorRate, CharErrorRate, preprocess
 
 try:
     import apex.amp as amp
@@ -201,10 +201,10 @@ class VQW2V_RNNDecoder(nn.Module):
         for i in tqdm(range(eval_num)):
             converted_audio_path = converted_audio_paths[i]
             tar = target_audio[i]
-            utterance = utterances[i].lower().replace(',', '').replace('.', '')
+            utterance = preprocess(utterances[i])
             _, cv = sw.read(converted_audio_path)
 
-            transcription = w2l.decode(cv).lower().replace(',', '').replace('.', '')
+            transcription = preprocess(w2l.decode(cv))
             
             mcd_value = mcd.calculate_metric(cv, tar)
             wer_value = wer.calculate_metric(transcription, utterance)
