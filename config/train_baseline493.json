@@ -9,8 +9,8 @@
         "sample_frames" : 32,
         "hop_length": 160,
         "bits": 8,
-        "train_list_path": "data_list/train_pre.json",
-        "val_list_path": "data_list/val_pre.json"
+        "train_list_path": "data_list/train_baseline493.json",
+        "val_list_path": "data_list/val_baseline493.json"
     },
     "encoder" : "checkpoints/vq-wav2vec.pt",
     "decoder_checkpoint" : "",
