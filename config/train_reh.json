@@ -4,7 +4,7 @@
     "checkpoint_period": 500,
     "dataset" : {
         "folder_in_archive": "ARCTIC",
-        "batch_size" : 50,
+        "batch_size" : 25,
         "sr" : 16000,
         "sample_frames" : 32,
         "hop_length": 160,
@@ -28,7 +28,7 @@
         "hop_length": 160
     },
     "optim" : {
-        "lr" : 4e-4,
+        "lr" : 2e-5,
         "beta_0" : 0.9,
         "beta_1" : 0.999
     },

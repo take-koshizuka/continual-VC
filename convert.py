@@ -53,9 +53,9 @@ def main(convert_config_path, checkpoint_path, outdir):
         out = model.conversion_step(batch, batch_idx)
         ref_loudness = meter.integrated_loudness(batch['source_audio'][0].cpu().detach().numpy())  
         converted_audio = out['cv'].numpy()
-        converted_audio = converted_audio / np.abs(converted_audio).max() * 0.999
         output_loudness = meter.integrated_loudness(converted_audio)
         converted_audio = pyloudnorm.normalize.loudness(converted_audio, output_loudness, ref_loudness)
+        converted_audio = converted_audio / np.abs(converted_audio).max() * 0.999
         # save
         sw.write(filename=out['converted_audio_path'], rate=cfg['dataset']['sr'], data=converted_audio)
         

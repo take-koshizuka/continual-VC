@@ -5,6 +5,8 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader
 import torch.optim as optim
+from transformers import AdamW
+from transformers import get_linear_schedule_with_warmup
 from torch.utils.tensorboard import SummaryWriter
 
 from dataset import WavDataset, PseudoWavDataset, infinite_iter
@@ -98,21 +100,23 @@ def main(train_config_path, checkpoint_dir, resume_path=""):
     model = VQW2V_RNNDecoder_PseudoRehearsal(cfg['encoder'], cfg['decoder'], device)
     model.to(device)
 
-    optimizer = optim.Adam(
-                    model.decoder.parameters(),
-                    lr=cfg['optim']['lr'],
-                    betas=(float(cfg['optim']['beta_0']), float(cfg['optim']['beta_1']))
-                )
-
-    scheduler = optim.lr_scheduler.MultiStepLR(
-                    optimizer, milestones=cfg['scheduler']['milestones'],
-                    gamma=cfg['scheduler']['gamma']
-                )
-
-    early_stopping = EarlyStopping('avg_loss', 'min')
+    #optimizer = optim.Adam(
+    #                model.decoder.parameters(),
+    #                lr=cfg['optim']['lr'],
+    #                betas=(float(cfg['optim']['beta_0']), float(cfg['optim']['beta_1']))
+    #            )
+    optimizer = AdamW(model.decoder.parameters(), lr=cfg['optim']['lr'])
 
     init_epochs = 1
     max_epochs = cfg['epochs']
+
+    #scheduler = optim.lr_scheduler.MultiStepLR(
+    #                optimizer, milestones=cfg['scheduler']['milestones'],
+    #                gamma=cfg['scheduler']['gamma']
+    #            )
+    scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=500, num_training_steps=max_epochs*len(tr_dl_fine))
+
+    early_stopping = EarlyStopping('avg_loss', 'min')
 
     if AMP:
         model.decoder, optimizer = amp.initialize(model.decoder, optimizer, opt_level="O1")
@@ -138,7 +142,7 @@ def main(train_config_path, checkpoint_dir, resume_path=""):
         # training phase
         for batch_idx, train_batch_fine in enumerate(tqdm(tr_dl_fine, leave=False)):
             train_batch_pre = next(tr_it_pre)
-            optimizer.zero_grad()
+            #optimizer.zero_grad()
             out = model.training_step(train_batch_fine, train_batch_pre, batch_idx)
             if AMP:
                 with amp.scale_loss(out['loss'], optimizer) as scaled_loss:
@@ -149,11 +153,13 @@ def main(train_config_path, checkpoint_dir, resume_path=""):
                 torch.nn.utils.clip_grad_norm_(model.decoder.parameters(), 1)
 
             optimizer.step()
+            scheduler.step()
+            model.zero_grad()
 
             del train_batch_fine
             del train_batch_pre
 
-        scheduler.step()
+        
 
         # validation phase
         outputs = []
@@ -166,6 +172,7 @@ def main(train_config_path, checkpoint_dir, resume_path=""):
 
         val_result = model.validation_epoch_end(outputs)
         writer.add_scalars('data/loss', val_result['log'])
+        records[f'epoch {i}'] = val_result['log']
 
         with open(str(checkpoint_dir / f"records_elapse.json"), "w") as f:
             json.dump(records, f, indent=4)
