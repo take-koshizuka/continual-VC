@@ -9,7 +9,6 @@ from torch.utils.tensorboard import SummaryWriter
 from dataset import WavDataset
 from model import VQW2V_RNNDecoder
 from utils import EarlyStopping
-from copy import deepcopy
 from tqdm import tqdm
 from pathlib import Path
 import argparse

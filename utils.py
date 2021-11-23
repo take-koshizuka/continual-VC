@@ -4,7 +4,6 @@ from torchaudio.models.wav2vec2.utils import import_huggingface_model
 from torchaudio.models import wav2vec2_large_lv60k
 from transformers import Wav2Vec2ForCTC, Wav2Vec2Tokenizer
 import numpy as np
-import re
 import pysptk
 import jiwer
 import pyworld as pw
@@ -153,3 +152,4 @@ class WordErrorRate:
         w2 = [chr(word2char[w]) for w in s2.split()]
 
         return Lev.distance(''.join(w1), ''.join(w2))
+
