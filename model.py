@@ -87,7 +87,7 @@ class RnnDecoder(nn.Module):
         x = self.fc2(x)
         return x
 
-    def generate(self, idxs1, idxs2, speaker, audio_size):
+    def generate(self, idxs1, idxs2, speaker, hop_length):
         cell = get_gru_cell(self.rnn2)
         z1 = self.code_embedding_1(idxs1)
         z2 = self.code_embedding_2(idxs2)
@@ -102,7 +102,7 @@ class RnnDecoder(nn.Module):
             z = torch.cat((z, z1, z2), dim=2)
             z, _ = self.rnn1A[i](z)
 
-        z = F.interpolate(z.transpose(1, 2), size=audio_size)
+        z = F.interpolate(z.transpose(1, 2), scale_factor=hop_length)
         z = z.transpose(1, 2)
 
         batch_size, sample_size, _ = z.size()
@@ -127,6 +127,7 @@ class VQW2V_RNNDecoder(nn.Module):
         self.encoder = VQ_Wav2Vec(enc_checkpoint_path)
         self.decoder = RnnDecoder(**decoder_cfg)
         self.quantization_channels = 2**decoder_cfg['bits']
+        self.hop_length = decoder_cfg['hop_length']
         self.device = device
         self.encoder.eval()
 
@@ -165,7 +166,7 @@ class VQW2V_RNNDecoder(nn.Module):
         with torch.no_grad():
             idxs = self.encoder.encode(audio)
             idxs1, idxs2 = idxs[:, :, 0], idxs[:, :, 1]
-            output = self.decoder.generate(idxs1, idxs2, speakers, audio.size(-1)) 
+            output = self.decoder.generate(idxs1, idxs2, speakers, self.hop_length) 
         return output, idxs
 
     def conversion_step(self, batch, batch_idx, rep=False):

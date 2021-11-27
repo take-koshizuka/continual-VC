@@ -7,7 +7,6 @@ import numpy as np
 import librosa
 from pathlib import Path
 
-
 SPEAKERS = [
     "aew",
     "ahw",
@@ -102,7 +101,6 @@ class ConversionDataset(Dataset):
         with open(synthesis_list_path) as f:
             metadata = json.load(f)
         
-        ut = Utterance(self.root)
         self.metadata = []
         for source_speaker, target_speaker, filename, converted_audio_path in metadata:
             meta_item = {
@@ -111,10 +109,16 @@ class ConversionDataset(Dataset):
                 'target_speaker_id' : SPEAKERS.index(target_speaker), 
                 'target_audio_path' : str(self.root / Path(f"cmu_us_{target_speaker}_arctic") / Path("wav") / Path(filename).with_suffix(".wav")), 
                 'converted_audio_path' : str(self.outdir / converted_audio_path),
-                'utterance' : ut.filename2utterance[filename]
+                'utterance' : self.ut.get_utterance(filename)
             }
             self.metadata.append(meta_item)
-
+    
+    def load_utterance(self):
+        self.ut = Utterance(self.root)
+    
+    def select_subset(self, ind):
+        self.metadata = [ self.metadata[i] for i in ind ]
+    
     def __len__(self):
         return len(self.metadata)
 
@@ -135,6 +139,53 @@ class ConversionDataset(Dataset):
         )
 
 
+class ConversionDataset_2(Dataset):
+    def __init__(self, root, outdir, synthesis_list_path, sr, unlabeled=False):
+        self.root = Path(root)
+        self.outdir = Path(outdir)
+        self.sr = sr
+        self.unlabeled = unlabeled
+        with open(synthesis_list_path) as f:
+            metadata = json.load(f)
+        
+        self.metadata = []
+        for source_speaker, target_speaker, filename, converted_audio_path in metadata:
+            meta_item = {
+                'source_speaker_id' : SPEAKERS.index(source_speaker),
+                'source_audio_path' : str(self.root / Path(f"cmu_us_{source_speaker}_arctic") / Path("wav") / Path(filename).with_suffix(".npy")),
+                'target_speaker_id' : SPEAKERS.index(target_speaker), 
+                'target_audio_path' : str(self.root / Path(f"cmu_us_{target_speaker}_arctic") / Path("wav") / Path(filename).with_suffix(".wav")), 
+                'converted_audio_path' : str(self.outdir / converted_audio_path),
+                'utterance' : self.ut.get_utterance(filename)
+            }
+            self.metadata.append(meta_item)
+    
+    def load_utterance(self):
+        self.ut = Utterance(self.root)
+    
+    def select_subset(self, ind):
+        self.metadata = [ self.metadata[i] for i in ind ]
+    
+    def __len__(self):
+        return len(self.metadata)
+
+    def __getitem__(self, index):
+        meta_item = self.metadata[index]
+        source_audio = np.load(meta_item['source_audio_path'])
+        #source_audio, _ = librosa.load(meta_item['source_audio_path'], sr=self.sr)
+        if self.unlabeled:
+            target_audio = np.empty(1)
+        else:
+            target_audio, _ = librosa.load(meta_item['target_audio_path'], sr=self.sr)
+        return dict(
+            source_speaker_id=meta_item['source_speaker_id'],
+            source_audio=torch.FloatTensor(source_audio),
+            target_speaker_id=meta_item['target_speaker_id'],
+            target_audio=torch.FloatTensor(target_audio),
+            converted_audio_path=meta_item['converted_audio_path'],
+            utterance=meta_item['utterance']
+        )
+
 class Utterance:
     def __init__(self, root):
         self.root = Path(root)
@@ -149,6 +200,9 @@ class Utterance:
                     utterance = line.split('"')[1]
                     filename = line.split(" ")[1]
                     self.filename2utterance[filename] = utterance
+
+    def get_utterance(self, filename):
+        return self.filename2utterance[filename]
 
 def infinite_iter(iterable):
     it = iter(iterable)

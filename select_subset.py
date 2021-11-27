@@ -9,7 +9,7 @@ class Histogram_Entropy:
         self.dataset = dataset
 
     def _calc_entropy(self, sub_meta):
-        corpus = [ meta['corpus'] for meta in sub_meta ]
+        corpus = [ meta['utterance'] for meta in sub_meta ]
         vectorizer = CountVectorizer()
         pk = np.sum(vectorizer.fit_transform(corpus), axis=0)
         return st.entropy(pk)
@@ -36,7 +36,7 @@ class Submodular:
     def _get_best_ind(self, S, S_bar) -> float:
         vectorizer = TfidfVectorizer()
         vectorizer.fit(S)
-        corpus = [ self.dataset.metadata[i]['corpus'] for i in S_bar ]
+        corpus = [ self.dataset.metadata[i]['utterance'] for i in S_bar ]
         score_list = [ (i, np.sum(vectorizer.transform(corpus[i]))**2) for i in S_bar ]
         index, _ = max(score_list, key=lambda x: x[1])
         return index
