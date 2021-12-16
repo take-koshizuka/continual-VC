@@ -12,6 +12,7 @@ from dataset import ConversionDataset
 from model import VQW2V_RNNDecoder
 from tqdm import tqdm
 from pathlib import Path
+import gc
 
 def fix_seed(seed):
     # random
@@ -23,7 +24,7 @@ def fix_seed(seed):
     torch.cuda.manual_seed_all(seed)
     torch.backends.cudnn.deterministic = True
 
-def main(convert_config_path, checkpoint_path, outdir):
+def main(convert_config_path, checkpoint_path, outdir, save_wav):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     Path(outdir).mkdir(exist_ok=True, parents=True)
     with open(convert_config_path, 'r') as f:
@@ -55,13 +56,16 @@ def main(convert_config_path, checkpoint_path, outdir):
         converted_audio = out['cv'].numpy()
         output_loudness = meter.integrated_loudness(converted_audio)
         converted_audio = pyloudnorm.normalize.loudness(converted_audio, output_loudness, ref_loudness)
-        converted_audio = converted_audio / np.abs(converted_audio).max() * 0.999
+        converted_audio = converted_audio / np.abs(converted_audio).max() * (1 - 1e-8)
         # save
-        sw.write(filename=out['converted_audio_path'], rate=cfg['dataset']['sr'], data=converted_audio)
+        if save_wav:
+            sw.write(filename=out['converted_audio_path'], rate=cfg['dataset']['sr'], data=converted_audio)
         
-        del out['cv']
+        out['cv'] = converted_audio
         outputs.append(out)
+        
         del batch
+        gc.collect()
 
     result = model.conversion_epoch_end(outputs)
     results_path = str(Path(outdir) / "results.json")
@@ -77,7 +81,7 @@ if __name__ == '__main__':
     parser.add_argument('-config', '-c', help="Path to the configuration file for conversion.", type=str, required=True)
     parser.add_argument('-path', '-p', help="Path to the checkpoint of the model", type=str, required=True)
     parser.add_argument('-outdir', '-d', help="Path to the output directory of converted speeches", type=str, required=True)
-
+    parser.add_argument('--save_wav', help="Save all converted audio as wav files.", action="store_true")
     args = parser.parse_args()
 
     ## example
@@ -86,4 +90,4 @@ if __name__ == '__main__':
     # args.outdir = "outputs/fine"
     ##
 
-    main(args.config, args.path, args.outdir)
+    main(args.config, args.path, args.outdir, args.save_wav)

@@ -1,12 +1,11 @@
 {
     "seed" : 57,
-    "epochs": 500,
+    "epochs": 800,
     "checkpoint_period": 500,
     "dataset" : {
         "folder_in_archive": "ARCTIC",
         "folder_pseudo_speech": "pseudo_speech",
-        "batch_size_fine" : 10,
-        "batch_size_pre" : 10,
+        "batch_size" : 4,
         "sr" : 16000,
         "sample_frames" : 32,
         "hop_length": 160,
@@ -32,7 +31,7 @@
         "hop_length": 160
     },
     "optim" : {
-        "lr" : 2e-5,
+        "lr" : 4e-4,
         "beta_0" : 0.9,
         "beta_1" : 0.999
     },

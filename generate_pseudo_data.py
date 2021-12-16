@@ -1,16 +1,17 @@
 import random
 import json
+import argparse
+import gc
+import os
+from tqdm import tqdm
+from pathlib import Path
 import numpy as np
 import torch
 from torch.utils.data import DataLoader
-import argparse
 
-import pyloudnorm
-import scipy.io.wavfile as sw
 from dataset import ConversionDataset
 from model import VQW2V_RNNDecoder
-from tqdm import tqdm
-from pathlib import Path
+
 
 def fix_seed(seed):
     # random
@@ -25,7 +26,7 @@ def fix_seed(seed):
 def get_save_filepath(path):
     par = Path(path).parent
     filename = Path(path).name
-    converted_audio_path = str(par / "wav" / f"{filename}.wav")
+    converted_audio_path = str(par / "wav" / f"{filename}.npy")
     representation_path = str(par / "rep" / f"{filename}.npy")
     return converted_audio_path, representation_path
     
@@ -57,28 +58,29 @@ def main(convert_config_path, checkpoint_path, outdir):
     model.to(device)
 
     model.eval()
-    # validation phase
-    meter = pyloudnorm.Meter(cfg['dataset']['sr'])
-    for batch_idx, batch in enumerate(tqdm(dl)):
-        out = model.conversion_step(batch, batch_idx, rep=True)
-        ref_loudness = meter.integrated_loudness(batch['source_audio'][0].cpu().detach().numpy())
-        converted_audio = out['cv'].numpy()
-        output_loudness = meter.integrated_loudness(converted_audio)
-        converted_audio = pyloudnorm.normalize.loudness(converted_audio, output_loudness, ref_loudness)
-        converted_audio = converted_audio / np.abs(converted_audio).max() * 0.999
 
-        converted_audio_path, representation_path = get_save_filepath(out['converted_audio_path'])
+    for batch_idx, batch in enumerate(tqdm(dl)):
+        converted_audio_path, representation_path = get_save_filepath(batch['converted_audio_path'][0])
+        if os.path.isfile(converted_audio_path):
+            continue
         
-        # save pseudo speech data
-        sw.write(filename=converted_audio_path, rate=cfg['dataset']['sr'], data=converted_audio)
-    
+        out = model.conversion_step(batch, batch_idx, rep=True)
+        converted_audio = out['cv'].numpy()
+        converted_audio = converted_audio / np.abs(converted_audio).max() * (1.0 - 1e-8)
+        converted_audio_path, representation_path = get_save_filepath(out['converted_audio_path'])
+
+        np.save(converted_audio_path, converted_audio)
         rep = out['representation'].numpy()
         # save intermediate representation
         np.save(representation_path, rep)
-
+        
+        del converted_audio
+        del rep
         del out
         del batch
+        gc.collect()
 
+        
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()

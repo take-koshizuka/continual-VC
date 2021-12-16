@@ -62,7 +62,8 @@ SPEAKERS = [
     "ljm",
     "lnh",
     "rms",
-    "slt"
+    "slt",
+    "gka",
 ]
 
 

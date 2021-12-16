@@ -8,8 +8,8 @@ import torch.optim as optim
 #from transformers import get_linear_schedule_with_warmup
 from torch.utils.tensorboard import SummaryWriter
 
-from dataset import WavDataset, PseudoWavDataset_2, infinite_iter
-from model import VQW2V_RNNDecoder_PseudoRehearsal
+from dataset import CombDataset
+from model import VQW2V_RNNDecoder_PseudoRehearsal_2
 from utils import EarlyStopping
 from tqdm import tqdm
 from pathlib import Path
@@ -39,65 +39,37 @@ def main(train_config_path, checkpoint_dir, resume_path=""):
     fix_seed(cfg['seed'])
     checkpoint_dir.mkdir(parents=True, exist_ok=True)
 
-    tr_ds_fine = WavDataset(
-        root=cfg['dataset']['folder_in_archive'],
-        data_list_path=cfg['dataset']['train_fine_list_path'],
+    tr_ds = CombDataset(
+        cur_root=cfg['dataset']['folder_in_archive'],
+        cur_data_list_path=cfg['dataset']['train_fine_list_path'],
+        past_root=cfg['dataset']['folder_pseudo_speech'],
+        past_data_list_path=cfg['dataset']['train_pre_list_path'],
         sr=cfg['dataset']['sr'],
         sample_frames=cfg['dataset']['sample_frames'],
-        hop_length=cfg['dataset']['hop_length'],
-        bits=cfg['dataset']['bits'],
+        hop_length=cfg['dataset']['hop_length']
     )
 
-    va_ds_fine = WavDataset(
-        root=cfg['dataset']['folder_in_archive'],
-        data_list_path=cfg['dataset']['val_fine_list_path'],
+    va_ds = CombDataset(
+        cur_root=cfg['dataset']['folder_in_archive'],
+        cur_data_list_path=cfg['dataset']['val_fine_list_path'],
+        past_root=cfg['dataset']['folder_pseudo_speech'],
+        past_data_list_path=cfg['dataset']['val_pre_list_path'],
         sr=cfg['dataset']['sr'],
         sample_frames=cfg['dataset']['sample_frames'],
-        hop_length=cfg['dataset']['hop_length'],
-        bits=cfg['dataset']['bits']
+        hop_length=cfg['dataset']['hop_length']
     )
 
-    tr_dl_fine = DataLoader(tr_ds_fine,
+    tr_dl = DataLoader(tr_ds,
             batch_size=cfg['dataset']['batch_size_fine'],
             shuffle=True,
             drop_last=True)
 
-    va_fine_bs = len(va_ds_fine) if len(va_ds_fine) <= 32 else 25
-    va_dl_fine = DataLoader(va_ds_fine,
-            batch_size=va_fine_bs,
-            drop_last=True)
-
-    tr_ds_pre = PseudoWavDataset_2(
-        root=cfg['dataset']['folder_pseudo_speech'],
-        data_list_path=cfg['dataset']['train_pre_list_path'],
-        sr=cfg['dataset']['sr'],
-        sample_frames=cfg['dataset']['sample_frames'],
-        hop_length=cfg['dataset']['hop_length'],
-        bits=cfg['dataset']['bits'],
-    )
-
-    va_ds_pre = PseudoWavDataset_2(
-        root=cfg['dataset']['folder_pseudo_speech'],
-        data_list_path=cfg['dataset']['val_pre_list_path'],
-        sr=cfg['dataset']['sr'],
-        sample_frames=cfg['dataset']['sample_frames'],
-        hop_length=cfg['dataset']['hop_length'],
-        bits=cfg['dataset']['bits']
-    )
-
-    tr_dl_pre = DataLoader(tr_ds_pre,
-            batch_size=cfg['dataset']['batch_size_pre'],
-            shuffle=True,
-            drop_last=True)
-    tr_it_pre = infinite_iter(tr_dl_pre)
-
-    va_pre_bs = len(va_ds_pre) if len(va_ds_pre) <= 32 else 25
-    va_dl_pre = DataLoader(va_ds_pre,
-            batch_size=va_pre_bs,
-            drop_last=True)
-    va_it_pre = infinite_iter(va_dl_pre)
-
-    model = VQW2V_RNNDecoder_PseudoRehearsal(cfg['encoder'], cfg['decoder'], device)
+    va_bs = len(va_ds)
+    va_dl = DataLoader(va_ds,
+            batch_size=va_bs,
+            drop_last=False)
+    
+    model = VQW2V_RNNDecoder_PseudoRehearsal_2(cfg['encoder'], cfg['decoder'], device)
     model.to(device)
 
     optimizer = optim.Adam(
@@ -138,10 +110,9 @@ def main(train_config_path, checkpoint_dir, resume_path=""):
     
     for i in tqdm(range(init_epochs, max_epochs + 1)):
         # training phase
-        for batch_idx, train_batch_fine in enumerate(tqdm(tr_dl_fine, leave=False)):
-            train_batch_pre = next(tr_it_pre)
+        for batch_idx, train_batch in enumerate(tqdm(tr_dl, leave=False)):
             optimizer.zero_grad()
-            out = model.training_step(train_batch_fine, train_batch_pre, batch_idx)
+            out = model.training_step(train_batch, batch_idx)
             if AMP:
                 with amp.scale_loss(out['loss'], optimizer) as scaled_loss:
                     scaled_loss.backward()
@@ -152,19 +123,16 @@ def main(train_config_path, checkpoint_dir, resume_path=""):
 
             optimizer.step()
 
-            del train_batch_fine
-            del train_batch_pre
+            del train_batch
+        
             gc.collect()
-
-        scheduler.step()
+            scheduler.step()
         # validation phase
         outputs = []
-        for batch_idx, eval_batch_fine in enumerate(tqdm(va_dl_fine, leave=False)):
-            eval_batch_pre = next(va_it_pre) 
-            out = model.validation_step(eval_batch_fine, eval_batch_pre, batch_idx)
+        for batch_idx, eval_batch in enumerate(tqdm(va_dl, leave=False)):
+            out = model.validation_step(eval_batch, batch_idx)
             outputs.append(out)
-            del eval_batch_fine
-            del eval_batch_pre
+            del eval_batch
             gc.collect()
 
         val_result = model.validation_epoch_end(outputs)

@@ -63,7 +63,8 @@ class MelCepstralDistortion:
 
     def wav2mcep(self, wav):
         wav = wav / np.abs(wav).max() * 0.999
-        f0, time = pw.harvest(wav.astype(np.float64), self.sr)
+        _f0, time = pw.harvest(wav.astype(np.float64), self.sr)
+        f0 = pw.stonemask(wav.astype(np.float64), _f0, time, self.sr)
         sp = pw.cheaptrick(wav.astype(np.float64), f0, time, self.sr)
         alpha = pysptk.util.mcepalpha(self.sr)
         mc = pysptk.sp2mc(sp, order=self.order, alpha=alpha)[:, 1:]

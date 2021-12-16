@@ -7,10 +7,11 @@ import argparse
 
 import pyloudnorm
 import scipy.io.wavfile as sw
-from dataset import ConversionDataset
+from dataset import ConversionDataset_2
 from model import VQW2V_RNNDecoder
 from tqdm import tqdm
 from pathlib import Path
+import gc
 
 def fix_seed(seed):
     # random
@@ -42,7 +43,7 @@ def main(convert_config_path, checkpoint_path, outdir):
 
     fix_seed(cfg['seed'])
 
-    ds = ConversionDataset(
+    ds = ConversionDataset_2(
         root=cfg['dataset']['folder_in_archive'],
         outdir=outdir,
         synthesis_list_path=cfg['dataset']['synthesis_list_path'],
@@ -81,6 +82,7 @@ def main(convert_config_path, checkpoint_path, outdir):
 
         del out
         del batch
+        gc.collect()
 
 
 if __name__ == '__main__':
