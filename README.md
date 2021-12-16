@@ -69,11 +69,11 @@ WER and CER are computed with  [Transformer-based ASR model](https://zenodo.org/
 
 ### 3.1 Evaluation for the pre-trained target speakers (aew, lnh, awb, ljm)
 ```bash
-python3 convert.py -c config/convert_pre.json [-p] /path/to/checkpoints [-d] /path/to/output_dir
+python3 convert.py -c config/convert_pre.json -p /path/to/checkpoints -d /path/to/output_dir
 ```
 
 ### 3.2 Evaluation for the fine-tuned target speakers (rms, slt)
 ```bash
-python3 convert.py -c config/convert_fine.json [-p] /path/to/checkpoints [-d] /path/to/output_dir
+python3 convert.py -c config/convert_fine.json -p /path/to/checkpoints -d /path/to/output_dir
 ```
 
