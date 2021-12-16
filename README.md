@@ -1,11 +1,8 @@
-# Under Construction...
-
 # Fine-tuning pre-trained voice conversion model for adding new target speakers with limited data
 
-This is the official implementation of the paper "Fine-tuning pre-trained voice conversion model for adding new target speakers with limited data".
+This repo contains code for our INTERSPEECH 2021 paper: [Fine-Tuning Pre-Trained Voice Conversion Model for Adding New Target Speakers with Limited Data](https://www.isca-speech.org/archive/interspeech_2021/koshizuka21_interspeech.html)
 
-
-# Setup
+## Setup
 
 1. Install Docker.
    * Install [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html) for GPU support.
@@ -54,12 +51,16 @@ python3 train.py -c config/train_reh.json -d checkpoints/reh
 ```
 
 ### 2.4 Pseudo-rehearsal
-1. generate pseudo speech dataset
+1. Generating pseudo speech dataset
    ```bash
    python3 generate_pseudo_data.py -c config/generate_pseudo_speech.json -p checkpoints/baseline493/best-model.pt -d pseudo_speech
    ```
+   You can skip this step by downloading [the pseudo speech data](https://github.com/take-koshizuka/continual-VC/releases/tag/v1.0.0). 
+    ```bash
+    wget https://github.com/take-koshizuka/continual-VC/releases/download/v1.0.0/pseudo_speech.zip && unzip -u pseudo_speech.zip && rm pseudo_speech.zip
+    ```
 
-2. training 
+2. Training 
     ```bash
     python3 train_preh.py -c config/train_preh.json -d checkpoints/preh
     ```
@@ -77,3 +78,14 @@ python3 convert.py -c config/convert_pre.json -p /path/to/checkpoints -d /path/t
 python3 convert.py -c config/convert_fine.json -p /path/to/checkpoints -d /path/to/output_dir
 ```
 
+## Citation
+```
+@inproceedings{koshizuka21_interspeech,
+  author={Takeshi Koshizuka and Hidefumi Ohmura and Kouichi Katsurada},
+  title={{Fine-Tuning Pre-Trained Voice Conversion Model for Adding New Target Speakers with Limited Data}},
+  year=2021,
+  booktitle={Proc. Interspeech 2021},
+  pages={1339--1343},
+  doi={10.21437/Interspeech.2021-244}
+}
+```
