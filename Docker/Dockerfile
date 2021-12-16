@@ -34,17 +34,10 @@ USER user
 ENV HOME=/home/user
 RUN chmod 777 /home/user
 
-RUN pip install tensorboard \
-    && pip install fairseq==0.10.0 \
-    && pip install torchaudio==0.9.0 \
-    && pip install transformers==4.9.2 \
-    && pip install jiwer==2.2.0 \
-    && pip install python-Levenshtein \
-    && pip install pyworld pysptk \
-    && pip install fastdtw \
-    && pip install pyloudnorm
-
 RUN git clone https://github.com/take-koshizuka/continual-VC.git
 
 WORKDIR /app/continual-VC
+
+RUN pip install -r requirements.txt
+
 CMD ["/bin/bash"]
