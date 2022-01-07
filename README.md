@@ -79,7 +79,7 @@ python3 convert.py -c config/convert_fine.json -p /path/to/checkpoints -d /path/
 ```
 
 ## Citation
-```
+```bib
 @inproceedings{koshizuka21_interspeech,
   author={Takeshi Koshizuka and Hidefumi Ohmura and Kouichi Katsurada},
   title={{Fine-Tuning Pre-Trained Voice Conversion Model for Adding New Target Speakers with Limited Data}},
