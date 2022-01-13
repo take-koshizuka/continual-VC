@@ -257,12 +257,12 @@ class VQW2V_RNNDecoder_PseudoRehearsal(VQW2V_RNNDecoder):
         output = self.decoder(mu_audio[:, :-1], idxs1, idxs2, speakers, mu_audio.size(1)-1)
         return output
     
-    def training_step(self, batch, batch_idx):
+    def training_step(self, batch_fine, batch_pre, batch_idx):
         self.encoder.eval()
         self.decoder.train()
-        cur_audio, cur_speakers = batch['cur_audio'].to(self.device), batch['cur_speaker'].to(self.device)
-        past_audio, past_speakers = batch['past_audio'].to(self.device), batch['past_speaker'].to(self.device)
-        past_idxs = batch['past_idxs'].to(self.device)
+        cur_audio, cur_speakers = batch_fine['audio'].to(self.device), batch_fine['speakers'].to(self.device)
+        past_audio, past_speakers = batch_pre['audio'].to(self.device), batch_pre['speakers'].to(self.device)
+        past_idxs = batch_pre['idxs'].to(self.device)
 
         cur_audio = cur_audio.view(-1, cur_audio.size(-1))
         cur_speakers = cur_speakers.flatten() 
@@ -288,13 +288,13 @@ class VQW2V_RNNDecoder_PseudoRehearsal(VQW2V_RNNDecoder):
 
         return { 'loss' : loss }
 
-    def validation_step(self, batch, batch_idx):
+    def validation_step(self, batch_fine, batch_pre, batch_idx):
         self.encoder.eval()
         self.decoder.eval()
         with torch.no_grad():
-            cur_audio, cur_speakers = batch['cur_audio'].to(self.device), batch['cur_speaker'].to(self.device)
-            past_audio, past_speakers = batch['past_audio'].to(self.device), batch['past_speaker'].to(self.device)
-            past_idxs = batch['past_idxs'].to(self.device)
+            cur_audio, cur_speakers = batch_fine['audio'].to(self.device), batch_fine['speakers'].to(self.device)
+            past_audio, past_speakers = batch_pre['audio'].to(self.device), batch_pre['speakers'].to(self.device)
+            past_idxs = batch_pre['idxs'].to(self.device)
 
             cur_audio = cur_audio.view(-1, cur_audio.size(-1))
             cur_speakers = cur_speakers.flatten()
