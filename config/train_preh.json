@@ -5,7 +5,8 @@
     "dataset" : {
         "folder_in_archive": "ARCTIC",
         "folder_pseudo_speech": "pseudo_speech",
-        "batch_size" : 4,
+        "batch_size_fine" : 8,
+        "batch_size_pre" : 16,
         "sr" : 16000,
         "sample_frames" : 32,
         "hop_length": 160,
