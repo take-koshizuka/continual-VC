@@ -42,7 +42,6 @@ def main(train_config_path, checkpoint_dir, resume_path=""):
         sr=cfg['dataset']['sr'],
         sample_frames=cfg['dataset']['sample_frames'],
         hop_length=cfg['dataset']['hop_length'],
-        bits=cfg['dataset']['bits'],
     )
 
     va_ds = WavDataset(
@@ -51,7 +50,6 @@ def main(train_config_path, checkpoint_dir, resume_path=""):
         sr=cfg['dataset']['sr'],
         sample_frames=cfg['dataset']['sample_frames'],
         hop_length=cfg['dataset']['hop_length'],
-        bits=cfg['dataset']['bits']
     )
 
     tr_dl = DataLoader(tr_ds,

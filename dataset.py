@@ -30,12 +30,11 @@ SPEAKERS = [
 ]
 
 class WavDataset(Dataset):
-    def __init__(self, root, data_list_path, sr, sample_frames, hop_length, bits):
+    def __init__(self, root, data_list_path, sr, sample_frames, hop_length):
         self.root = Path(root)
         self.sr = sr
         self.sample_frames = sample_frames
         self.hop_length = hop_length
-        self.bits = bits
         with open(data_list_path) as file:
             metadata = json.load(file)
             self.metadata = [
@@ -45,7 +44,7 @@ class WavDataset(Dataset):
                 }
                 for speaker_id, filename in metadata
             ]
-        self.labels = [ id for id, _ in metadata ]
+            self.labels = [ id for id, _ in metadata ]
 
     def __len__(self):
         return len(self.metadata)
@@ -60,83 +59,43 @@ class WavDataset(Dataset):
 
 
 class PseudoWavDataset(Dataset):
-    def __init__(self, cur_root, cur_data_list_path, past_root, past_data_list_path, sr, sample_frames, hop_length):
-        self.cur_root = Path(cur_root)
-        self.past_root = Path(past_root)
+    def __init__(self, root, data_list_path, sr, sample_frames, hop_length):
+        self.root = Path(root)
         self.sr = sr
-        self.hop_length = hop_length
         self.sample_frames = sample_frames
+        self.hop_length = hop_length
         self.metadata_cur = { }
         self.metadata_past = { }
-        with open(cur_data_list_path) as file:
-            metadata = json.load(file)
-            self.cur_speakers = set([ speaker_id for speaker_id, _ in metadata ])
-            for speaker_id in self.cur_speakers:
-                self.metadata_cur[speaker_id] = [
-                    {
-                        'speaker_id' : SPEAKERS.index(speaker_id),
-                        'audio_path' : str(self.cur_root / Path(f"cmu_us_{speaker_id}_arctic") / Path("wav") / Path(filename).with_suffix(".wav"))
-                    }
-                    for sp, filename in metadata if speaker_id == sp
-                ]
 
-        with open(past_data_list_path) as file:
+        with open(data_list_path) as file:
             metadata = json.load(file)
-            self.past_speakers = set([ speaker_id for speaker_id, _ in metadata ])
-            for speaker_id in self.past_speakers:
-                self.metadata_past[speaker_id] = [
-                    {
-                        'speaker_id' : SPEAKERS.index(speaker_id),
-                        'audio_path' : str(self.past_root / Path("wav") / Path(filename).with_suffix(".npy")),
-                        'representation_path' : str(self.past_root / Path("rep") / Path(filename).with_suffix(".npy")),
-                    }
-                    for sp, filename in metadata if speaker_id == sp
-                ]
+            self.metadata = [
+                {
+                    'speaker_id' : SPEAKERS.index(speaker_id),
+                    'audio_path' : str(self.root / Path("wav") / Path(filename).with_suffix(".npy")),
+                    'representation_path' : str(self.root / Path("rep") / Path(filename).with_suffix(".npy")),
+                }
+                for speaker_id, filename in metadata
+            ]
+        
+            self.labels = [ id for id, _ in metadata ]
 
     def __len__(self):
-        sp = list(self.metadata_cur.keys())[0]
-        return len(self.metadata_cur[sp])
+        return len(self.metadata)
+        
 
     def __getitem__(self, index):
-        audio_bucket = []
-        speaker_bucket = []
-        past_audio_bucket = []
-        past_speaker_bucket = []
-        past_idxs_bucket = []
-        for speaker_id in self.cur_speakers:
-            metadata_cur = self.metadata_cur[speaker_id][index]
-            audio, _ = librosa.load(metadata_cur['audio_path'], sr=self.sr)
-            audio = audio / np.abs(audio).max() * (1.0 - 1e-8)
-            
-            pos = random.randint(0, (len(audio) // self.hop_length) - self.sample_frames - 2)
-            audio = audio[pos * self.hop_length:(pos + self.sample_frames) * self.hop_length + 1]
-            audio_bucket.append(torch.FloatTensor(audio).unsqueeze(0))
-            speaker_bucket.append(torch.tensor([ metadata_cur['speaker_id']] ).unsqueeze(0))
+        metadata = self.metadata[index]
+        audio = np.load(metadata['audio_path'])
+        audio = audio / np.abs(audio).max() * (1.0 - 1e-8)
+        idxs  = np.load(metadata['representation_path'])
 
-        for speaker_id in self.past_speakers:
-            metadata_past = self.metadata_past[speaker_id][index]
-            audio_past = np.load(metadata_past['audio_path'])
-            audio_past = audio_past / np.abs(audio_past).max() * (1.0 - 1e-8)
-            past_idxs  = np.load(metadata_past['representation_path'])
-            past_pos = random.randint(0, (len(audio_past) // self.hop_length) - self.sample_frames - 2)
-            audio_past = audio_past[past_pos * self.hop_length:(past_pos + self.sample_frames) * self.hop_length + 1]
-            past_idxs = past_idxs[past_pos : past_pos + self.sample_frames ,:]
-            past_audio_bucket.append(torch.FloatTensor(audio_past).unsqueeze(0))
-            past_idxs_bucket.append(torch.LongTensor(past_idxs).unsqueeze(0))
-            past_speaker_bucket.append(torch.tensor([ metadata_past['speaker_id']] ).unsqueeze(0))
+        pos = random.randint(0, (len(audio) // self.hop_length) - self.sample_frames - 2)
+        audio = audio[pos * self.hop_length:(pos + self.sample_frames) * self.hop_length + 1]
+        idxs = idxs[pos : pos + self.sample_frames ,:]
 
-        audio_bucket = torch.cat(audio_bucket, dim=0)
-        speaker_bucket = torch.cat(speaker_bucket, dim=0)
+        return dict(audio=torch.FloatTensor(audio), idxs=idxs, speakers=metadata['speaker_id'])
 
-        past_audio_bucket = torch.cat(past_audio_bucket, dim=0)
-        past_idxs_bucket= torch.cat(past_idxs_bucket, dim=0)
-        past_speaker_bucket = torch.cat(past_speaker_bucket, dim=0)
-
-        return dict(cur_audio=audio_bucket, 
-                    cur_speaker=speaker_bucket,
-                    past_audio=past_audio_bucket,
-                    past_idxs=past_idxs_bucket,
-                    past_speaker=past_speaker_bucket)
 
 class ConversionDataset(Dataset):
     def __init__(self, root, outdir, synthesis_list_path, sr, unlabeled=False):

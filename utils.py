@@ -33,6 +33,15 @@ class EarlyStopping(object):
     def update(self, values):
         self.monitor_values[self.monitor] = values[self.monitor]
 
+
+def get_next_sample(data_iter, data_loader):
+    try:
+        data = next(data_iter) 
+    except StopIteration:
+        data_iter = iter(data_loader)
+        data = next(data_iter)
+    return data, data_iter
+
 class Wav2Letter:
     def __init__(self, device):
         if not os.path.exists(PATH_TO_ASR):
