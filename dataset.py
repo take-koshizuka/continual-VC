@@ -30,21 +30,25 @@ SPEAKERS = [
 ]
 
 class WavDataset(Dataset):
-    def __init__(self, root, data_list_path, sr, sample_frames, hop_length):
+    def __init__(self, root, sr, sample_frames, hop_length, data_list_path=None, metadata=None):
         self.root = Path(root)
         self.sr = sr
         self.sample_frames = sample_frames
         self.hop_length = hop_length
-        with open(data_list_path) as file:
-            metadata = json.load(file)
-            self.metadata = [
-                {
-                    'speaker_id' : SPEAKERS.index(speaker_id),
-                    'audio_path' : str(self.root / Path(f"cmu_us_{speaker_id}_arctic") / Path("wav") / Path(filename).with_suffix(".wav"))
-                }
-                for speaker_id, filename in metadata
-            ]
-            self.labels = [ id for id, _ in metadata ]
+        if not metadata is None:
+            self.metadata = metadata
+        else:
+            with open(data_list_path) as file:
+                metadata = json.load(file)
+        
+        self.metadata = [
+            {
+                'speaker_id' : SPEAKERS.index(speaker_id),
+                'audio_path' : str(self.root / Path(f"cmu_us_{speaker_id}_arctic") / Path("wav") / Path(filename).with_suffix(".wav"))
+            }
+            for speaker_id, filename in metadata
+        ]
+        self.labels = [ id for id, _ in metadata ]
 
     def __len__(self):
         return len(self.metadata)
@@ -59,7 +63,7 @@ class WavDataset(Dataset):
 
 
 class PseudoWavDataset(Dataset):
-    def __init__(self, root, data_list_path, sr, sample_frames, hop_length):
+    def __init__(self, root, sr, sample_frames, hop_length, data_list_path=None, metadata=None):
         self.root = Path(root)
         self.sr = sr
         self.sample_frames = sample_frames
@@ -67,18 +71,21 @@ class PseudoWavDataset(Dataset):
         self.metadata_cur = { }
         self.metadata_past = { }
 
-        with open(data_list_path) as file:
-            metadata = json.load(file)
-            self.metadata = [
-                {
-                    'speaker_id' : SPEAKERS.index(speaker_id),
-                    'audio_path' : str(self.root / Path("wav") / Path(filename).with_suffix(".npy")),
-                    'representation_path' : str(self.root / Path("rep") / Path(filename).with_suffix(".npy")),
-                }
-                for speaker_id, filename in metadata
-            ]
-        
-            self.labels = [ id for id, _ in metadata ]
+        if not metadata is None:
+            self.metadata = metadata
+        else:
+            with open(data_list_path) as file:
+                metadata = json.load(file)
+
+        self.metadata = [
+            {
+                'speaker_id' : SPEAKERS.index(speaker_id),
+                'audio_path' : str(self.root / Path("wav") / Path(filename).with_suffix(".npy")),
+                'representation_path' : str(self.root / Path("rep") / Path(filename).with_suffix(".npy")),
+            }
+            for speaker_id, filename in metadata
+        ]
+        self.labels = [ id for id, _ in metadata ]
 
     def __len__(self):
         return len(self.metadata)
@@ -160,12 +167,3 @@ class Utterance:
 
     def get_utterance(self, filename):
         return self.filename2utterance[filename]
-
-def infinite_iter(iterable):
-    it = iter(iterable)
-    while True:
-        try:
-            ret = next(it)
-            yield ret
-        except StopIteration:
-            it = iter(iterable)

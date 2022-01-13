@@ -1,4 +1,5 @@
 import os
+import json
 import torch
 from torchaudio.models.wav2vec2.utils import import_huggingface_model
 from torchaudio.models import wav2vec2_large_lv60k
@@ -10,9 +11,28 @@ import pyworld as pw
 import Levenshtein as Lev
 from scipy.spatial.distance import euclidean
 from fastdtw import fastdtw
+from pathlib import Path
 
 
 PATH_TO_ASR = "checkpoints/wav2vec2-base-960h.pt"
+
+def get_metadata(path_list_dir, speakers, train_size, val_size, random_split=True):
+    # path_list_dir: data_list or pseudo_data_list
+    train_metadata = []
+    val_metadata = []
+    
+    path_list = [  Path(path_list_dir) / f"train_val_{sp}.json" for sp in speakers ]
+    for path in path_list:
+        with open(str(path)) as f:
+            lst = json.load(f)
+
+        if random_split:
+            np.random.shuffle(lst)
+        
+        train_metadata.extend(lst[:train_size])
+        val_metadata.extend(lst[train_size:(train_size+val_size)])
+
+    return train_metadata, val_metadata
 
 class EarlyStopping(object):
     def __init__(self, monitor='loss', direction='min'):
@@ -33,14 +53,6 @@ class EarlyStopping(object):
     def update(self, values):
         self.monitor_values[self.monitor] = values[self.monitor]
 
-
-def get_next_sample(data_iter, data_loader):
-    try:
-        data = next(data_iter) 
-    except StopIteration:
-        data_iter = iter(data_loader)
-        data = next(data_iter)
-    return data, data_iter
 
 class Wav2Letter:
     def __init__(self, device):
@@ -64,11 +76,15 @@ class Wav2Letter:
         return transcription
 
 class MelCepstralDistortion:
-    def __init__(self, sr=16000, order=24):
+    def __init__(self, target_speakers=None, sr=16000, order=24):
         self.sr = sr
         self.order = order
         self.mcd = 0
         self.n_frames = 0
+        self.target_speakers = target_speakers
+        if not target_speakers is None:
+            self.score_per_speaker = { sp : dict(mcd=0, n_frames=0) for sp in target_speakers }
+        
 
     def wav2mcep(self, wav):
         wav = wav / np.abs(wav).max() * 0.999
@@ -79,15 +95,21 @@ class MelCepstralDistortion:
         mc = pysptk.sp2mc(sp, order=self.order, alpha=alpha)[:, 1:]
         return mc
     
-    def calculate_metric(self, wav, wav_ref):
+    def calculate_metric(self, wav, wav_ref, target_speaker=None):
         mcd_inst, n_frames = self.mcd_calc(wav, wav_ref)
         self.mcd += mcd_inst
         self.n_frames += n_frames
+        if not target_speaker is None:
+            self.score_per_speaker[target_speaker]['mcd'] += mcd_inst
+            self.score_per_speaker[target_speaker]['n_frames'] += n_frames
+
         return mcd_inst / n_frames
 
     def compute(self):
-        mcd = float(self.mcd) / self.n_frames
-        return mcd
+        if not self.target_speakers is None:
+            scores = { sp: float(self.score_per_speaker[sp]['mcd']) / self.score_per_speaker[sp]['n_frames'] for sp in self.target_speakers }
+        scores['all'] = float(self.mcd) / self.n_frames
+        return scores
     
     def mcd_calc(self, wav, wav_ref):
         mc = self.wav2mcep(wav)
@@ -118,38 +140,54 @@ def preprocess(text):
     return " ".join(words_list)
 
 class CharErrorRate:
-    def __init__(self):
+    def __init__(self, target_speakers=None):
         self.cer = 0
         self.n_chars = 0
+        self.target_speakers = target_speakers
+        if not target_speakers is None:
+            self.score_per_speaker = { sp : dict(cer=0, n_chars=0) for sp in target_speakers }
 
-    def calculate_metric(self, transcript, reference):
+    def calculate_metric(self, transcript, reference, target_speaker=None):
         cer_inst = self.cer_calc(transcript, reference)
         self.cer += cer_inst
         self.n_chars += len(reference.replace(' ', ''))
+        if not target_speaker is None:
+            self.score_per_speaker[target_speaker]['cer'] += cer_inst
+            self.score_per_speaker[target_speaker]['n_chars'] += len(reference.replace(' ', ''))
         return cer_inst / len(reference.replace(' ', ''))
 
     def compute(self):
-        cer = float(self.cer) / self.n_chars
-        return cer * 100
+        if not self.target_speakers is None:
+            scores = { sp: (float(self.score_per_speaker[sp]['cer']) / self.score_per_speaker[sp]['n_chars'])*100 for sp in self.target_speakers }
+        scores['all'] = (float(self.cer) / self.n_chars)*100
+        return scores
     
     def cer_calc(self, s1, s2):
         s1, s2, = s1.replace(' ', ''), s2.replace(' ', '')
         return Lev.distance(s1, s2)
 
 class WordErrorRate:
-    def __init__(self):
+    def __init__(self, target_speakers=None):
         self.wer = 0
         self.n_words = 0
+        self.target_speakers = target_speakers
+        if not target_speakers is None:
+            self.score_per_speaker = { sp : dict(wer=0, n_words=0) for sp in target_speakers }
 
-    def calculate_metric(self, transcript, reference):
+    def calculate_metric(self, transcript, reference, target_speaker=None):
         wer_inst = self.wer_calc(transcript, reference)
         self.wer += wer_inst
         self.n_words += len(reference.split())
+        if not target_speaker is None:
+            self.score_per_speaker[target_speaker]['wer'] += wer_inst
+            self.score_per_speaker[target_speaker]['n_words'] += len(reference.split())
         return wer_inst / len(reference.split())
 
     def compute(self):
-        wer = float(self.wer) / self.n_words
-        return wer * 100
+        if not self.target_speakers is None:
+            scores = { sp: (float(self.score_per_speaker[sp]['wer']) / self.score_per_speaker[sp]['n_words'])*100 for sp in self.target_speakers }
+        scores['all'] = float(self.wer) / self.n_words
+        return scores
     
     def wer_calc(self, s1, s2):
         # build mapping of words to integers

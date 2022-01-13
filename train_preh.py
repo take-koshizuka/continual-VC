@@ -8,7 +8,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 from dataset import WavDataset, PseudoWavDataset
 from model import VQW2V_RNNDecoder_PseudoRehearsal
-from utils import EarlyStopping
+from utils import EarlyStopping, get_metadata
 from tqdm import tqdm
 from pathlib import Path
 import argparse
@@ -37,36 +37,42 @@ def main(train_config_path, checkpoint_dir, resume_path=""):
     fix_seed(cfg['seed'])
     checkpoint_dir.mkdir(parents=True, exist_ok=True)
 
+    train_metadata_fine, val_metadata_fine = get_metadata(cfg['fine']['path_list_dir'], cfg["fine"]["speakers"], train_size=cfg["fine"]["train_size"], 
+                                                            val_size=cfg["fine"]["val_size"], random_split=cfg['random_split'])
+
+    train_metadata_pre, val_metadata_pre = get_metadata(cfg['pre']['path_list_dir'], cfg["pre"]["speakers"], train_size=cfg["pre"]["train_size"], 
+                                                            val_size=cfg["pre"]["val_size"], random_split=cfg['random_split'])
+
     tr_ds_fine = WavDataset(
         root=cfg['dataset']['folder_in_archive'],
-        data_list_path=cfg['dataset']['train_fine_list_path'],
         sr=cfg['dataset']['sr'],
         sample_frames=cfg['dataset']['sample_frames'],
-        hop_length=cfg['dataset']['hop_length']
+        hop_length=cfg['dataset']['hop_length'],
+        metadata=train_metadata_fine
     )
 
     va_ds_fine = WavDataset(
         root=cfg['dataset']['folder_in_archive'],
-        data_list_path=cfg['dataset']['val_fine_list_path'],
         sr=cfg['dataset']['sr'],
         sample_frames=cfg['dataset']['sample_frames'],
-        hop_length=cfg['dataset']['hop_length']
+        hop_length=cfg['dataset']['hop_length'],
+        metadata=val_metadata_fine
     )
 
     tr_ds_pre = PseudoWavDataset(
         root=cfg['dataset']['folder_pseudo_speech'],
-        data_list_path=cfg['dataset']['train_pre_list_path'],
         sr=cfg['dataset']['sr'],
         sample_frames=cfg['dataset']['sample_frames'],
-        hop_length=cfg['dataset']['hop_length']
+        hop_length=cfg['dataset']['hop_length'],
+        metadata=train_metadata_pre
     )
     
     va_ds_pre = PseudoWavDataset(
         root=cfg['dataset']['folder_pseudo_speech'],
-        data_list_path=cfg['dataset']['val_pre_list_path'],
         sr=cfg['dataset']['sr'],
         sample_frames=cfg['dataset']['sample_frames'],
-        hop_length=cfg['dataset']['hop_length']
+        hop_length=cfg['dataset']['hop_length'],
+        metadata=val_metadata_pre
     )
     
     # 4 * 4

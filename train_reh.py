@@ -37,9 +37,15 @@ def main(train_config_path, checkpoint_dir, resume_path=""):
     fix_seed(cfg['seed'])
     checkpoint_dir.mkdir(parents=True, exist_ok=True)
     
-    train_metadata, val_metadata = get_metadata(cfg['path_list_dir'], cfg["speakers"], 
-                                        train_size=cfg['train_size'], val_size=cfg['val_size'], random_split=cfg['random_split'])
+    train_metadata_fine, val_metadata_fine = get_metadata(cfg['fine']['path_list_dir'], cfg["fine"]["speakers"], train_size=cfg["fine"]["train_size"], 
+                                                            val_size=cfg["fine"]["val_size"], random_split=cfg['random_split'])
 
+    train_metadata_pre, val_metadata_pre = get_metadata(cfg['pre']['path_list_dir'], cfg["pre"]["speakers"], train_size=cfg["pre"]["train_size"], 
+                                                            val_size=cfg["pre"]["val_size"], random_split=cfg['random_split'])
+
+    train_metadata = train_metadata_fine + train_metadata_pre
+    val_metadata = val_metadata_fine + val_metadata_pre
+    
     tr_ds = WavDataset(
         root=cfg['dataset']['folder_in_archive'],
         sr=cfg['dataset']['sr'],

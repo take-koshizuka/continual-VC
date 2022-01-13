@@ -9,6 +9,7 @@ from tqdm import tqdm
 from copy import deepcopy
 import numpy as np
 from utils import Wav2Letter, MelCepstralDistortion, WordErrorRate, CharErrorRate, preprocess
+from dataset import SPEAKERS
 
 try:
     import apex.amp as amp
@@ -178,6 +179,7 @@ class VQW2V_RNNDecoder(nn.Module):
         ret = dict(
             cv=output.cpu().detach(),
             converted_audio_path=batch['converted_audio_path'][0],
+            target_speaker_id=batch['target_speaker_id'][0],
             target_audio=batch['target_audio'][0],
             utterance=batch['utterance'][0]
         )
@@ -187,27 +189,30 @@ class VQW2V_RNNDecoder(nn.Module):
 
     def conversion_epoch_end(self, outputs):
         converted_audio_paths = np.array([ out['converted_audio_path'] for out in outputs ]).flatten()
+        target_speakers = [ SPEAKERS[out['target_speaker_id']] for out in outputs ]
+        target_speaker_set = list(set(target_speakers))
         target_audio = [ out['target_audio'].cpu().numpy() for out in outputs ]
         utterances = np.array([ out['utterance'] for out in outputs ]).flatten()
         w2l = Wav2Letter(self.device)
-        mcd = MelCepstralDistortion()
-        wer = WordErrorRate()
-        cer = CharErrorRate()
+        mcd = MelCepstralDistortion(target_speaker_set)
+        wer = WordErrorRate(target_speaker_set)
+        cer = CharErrorRate(target_speaker_set)
 
         all_logs = []
 
         eval_num = len(converted_audio_paths)
         for i in tqdm(range(eval_num)):
             converted_audio_path = converted_audio_paths[i]
+            target_speaker = target_speakers[i]
             tar = target_audio[i]
             utterance = preprocess(utterances[i])
             cv = outputs[i]['cv']
 
             transcription = preprocess(w2l.decode(cv))
             
-            mcd_value = mcd.calculate_metric(cv, tar)
-            wer_value = wer.calculate_metric(transcription, utterance)
-            cer_value = cer.calculate_metric(transcription, utterance)
+            mcd_value = mcd.calculate_metric(cv, tar, target_speaker)
+            wer_value = wer.calculate_metric(transcription, utterance, target_speaker)
+            cer_value = cer.calculate_metric(transcription, utterance, target_speaker)
 
             all_logs.append({ 
                 'converted_audio_path' : converted_audio_path,
@@ -218,6 +223,7 @@ class VQW2V_RNNDecoder(nn.Module):
                 'cer' : cer_value
             })
 
+            del target_speaker
             del tar
             del utterance
             del cv
@@ -304,7 +310,6 @@ class VQW2V_RNNDecoder_PseudoRehearsal(VQW2V_RNNDecoder):
             past_mu_audio =  aF.mu_law_encoding(past_audio, self.quantization_channels)
             past_idxs = past_idxs.view(-1, past_idxs.size(-2), past_idxs.size(-1))
 
-            
             cur_idxs = self.encoder.encode(cur_audio[:, :-1])
 
             cur_idxs1, cur_idxs2 = cur_idxs[:,:,0], cur_idxs[:,:,1]

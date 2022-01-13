@@ -2,15 +2,18 @@
     "seed" : 57,
     "epochs": 2750,
     "checkpoint_period": 500,
+    "path_list_dir": "data_list",
+    "speakers": ["aew", "lnh", "awb", "ljm"],
+    "train_size": 493,
+    "val_size": 100,
+    "random_split": true,
     "dataset" : {
         "folder_in_archive": "ARCTIC",
         "batch_size" : 32,
         "sr" : 16000,
         "sample_frames" : 32,
         "hop_length": 160,
-        "bits": 8,
-        "train_list_path": "data_list/train_baseline493.json",
-        "val_list_path": "data_list/val_baseline493.json"
+        "bits": 8
     },
     "encoder" : "checkpoints/vq-wav2vec.pt",
     "decoder_checkpoint" : "",
