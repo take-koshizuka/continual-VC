@@ -24,9 +24,14 @@ def fix_seed(seed):
     torch.cuda.manual_seed_all(seed)
     torch.backends.cudnn.deterministic = True
 
-def main(convert_config_path, checkpoint_path, outdir, save_wav):
+def main(convert_config_path, checkpoint_path, wav_dir):
+    save_wav = (wav_dir != "")
+    outdir = Path(checkpoint_path).parent
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    Path(outdir).mkdir(exist_ok=True, parents=True)
+    if save_wav:
+        wav_dir = outdir / wav_dir
+        Path(wav_dir).mkdir(exist_ok=True, parents=True)
+
     with open(convert_config_path, 'r') as f:
         cfg = json.load(f)
 
@@ -34,7 +39,7 @@ def main(convert_config_path, checkpoint_path, outdir, save_wav):
 
     ds = ConversionDataset(
         root=cfg['dataset']['folder_in_archive'],
-        outdir=outdir,
+        outdir=wav_dir,
         synthesis_list_path=cfg['dataset']['synthesis_list_path'],
         sr=cfg['dataset']['sr']
     )
@@ -80,8 +85,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('-config', '-c', help="Path to the configuration file for conversion.", type=str, required=True)
     parser.add_argument('-path', '-p', help="Path to the checkpoint of the model", type=str, required=True)
-    parser.add_argument('-outdir', '-d', help="Path to the output directory of converted speeches", type=str, required=True)
-    parser.add_argument('--save_wav', help="Save all converted audio as wav files.", action="store_true")
+    parser.add_argument('-wav_dir', '-d', help="Path to the output directory of converted speeches", default="", type=str)
     args = parser.parse_args()
 
     ## example
@@ -90,4 +94,4 @@ if __name__ == '__main__':
     # args.outdir = "outputs/fine"
     ##
 
-    main(args.config, args.path, args.outdir, args.save_wav)
+    main(args.config, args.path, args.wav_dir)
