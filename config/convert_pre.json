@@ -1,5 +1,6 @@
 {
     "seed" : 57,
+    "name": "pre",
     "dataset" : {
         "folder_in_archive": "ARCTIC",
         "sr" : 16000,

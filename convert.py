@@ -25,15 +25,15 @@ def fix_seed(seed):
     torch.backends.cudnn.deterministic = True
 
 def main(convert_config_path, checkpoint_path, wav_dir):
+    with open(convert_config_path, 'r') as f:
+        cfg = json.load(f)
+    
     save_wav = (wav_dir != "")
-    outdir = Path(checkpoint_path).parent
+    outdir = Path(checkpoint_path).parent / cfg["name"]
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     if save_wav:
         wav_dir = outdir / wav_dir
         Path(wav_dir).mkdir(exist_ok=True, parents=True)
-
-    with open(convert_config_path, 'r') as f:
-        cfg = json.load(f)
 
     fix_seed(cfg['seed'])
 
