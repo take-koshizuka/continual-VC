@@ -76,16 +76,10 @@ def main(train_config_path, checkpoint_dir, resume_path=""):
     )
 
     sampler_fine = MPerClassSampler(tr_ds_fine.labels, m=cfg['dataset']['batch_size_per_class_fine'], length_before_new_iter=len(tr_ds_fine))
-    tr_dl_fine = DataLoader(tr_ds_fine,
-                    shuffle=True,
-                    drop_last=True,
-                    sampler=sampler_fine)
+    tr_dl_fine = DataLoader(tr_ds_fine, drop_last=True, sampler=sampler_fine)
 
     sampler_pre = MPerClassSampler(tr_ds_pre.labels, m=cfg['dataset']['batch_size_per_class_pre'], length_before_new_iter=len(tr_ds_pre))
-    tr_dl_pre = DataLoader(tr_ds_pre,
-                    shuffle=True,
-                    drop_last=True,
-                    sampler=sampler_pre)
+    tr_dl_pre = DataLoader(tr_ds_pre, drop_last=True, sampler=sampler_pre)
 
     va_dl_fine = DataLoader(va_ds_fine, batch_size=50, drop_last=False)
     va_dl_pre = DataLoader(va_ds_pre, batch_size=50, drop_last=False)
