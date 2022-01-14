@@ -8,7 +8,7 @@ import torch.optim as optim
 from torch.utils.tensorboard import SummaryWriter
 
 from dataset import BalanceWavDataset
-from model import VQW2V_RNNDecoder
+from model import VQW2V_RNNDecoder_Replay
 from utils import EarlyStopping, get_metadata
 from tqdm import tqdm
 from pathlib import Path
@@ -93,7 +93,7 @@ def main(train_config_path, checkpoint_dir, resume_path=""):
     tr_it_pre = iter(tr_dl_pre)
     va_it_pre = iter(va_dl_pre)
     
-    model = VQW2V_RNNDecoder(cfg['encoder'], cfg['decoder'], device)
+    model = VQW2V_RNNDecoder_Replay(cfg['encoder'], cfg['decoder'], device)
     model.to(device)
 
     optimizer = optim.Adam(
@@ -140,13 +140,9 @@ def main(train_config_path, checkpoint_dir, resume_path=""):
             except StopIteration:
                 tr_it_pre = iter(tr_dl_pre)
                 train_batch_pre = next(tr_it_pre)
-            
-            train_batch = {
-                key: torch.cat([train_batch_fine[key], train_batch_pre[key]], dim=0) for key in train_batch_fine.keys() 
-            }
+        
             optimizer.zero_grad()
-            
-            out = model.training_step(train_batch, batch_idx)
+            out = model.training_step(train_batch_fine, train_batch_pre, batch_idx)
             if AMP:
                 with amp.scale_loss(out['loss'], optimizer) as scaled_loss:
                     scaled_loss.backward()
@@ -159,7 +155,6 @@ def main(train_config_path, checkpoint_dir, resume_path=""):
 
             del train_batch_fine
             del train_batch_pre
-            del train_batch
         
             gc.collect()
             scheduler.step()
@@ -171,17 +166,12 @@ def main(train_config_path, checkpoint_dir, resume_path=""):
             except StopIteration:
                 va_it_pre = iter(va_dl_pre)
                 val_batch_pre = next(va_it_pre)
-            
-            val_batch = {
-                key: torch.cat([val_batch_fine[key], val_batch_pre[key]], dim=0) for key in val_batch_fine.keys() 
-            }
 
-            out = model.validation_step(val_batch, batch_idx)
+            out = model.validation_step(val_batch_fine, val_batch_pre, batch_idx)
             outputs.append(out)
             
             del val_batch_fine
             del val_batch_pre
-            del val_batch
 
             gc.collect()
 

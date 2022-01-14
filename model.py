@@ -252,9 +252,9 @@ class VQW2V_RNNDecoder(nn.Module):
             amp.load_state_dict(checkpoint["amp"])
     
 
-class VQW2V_RNNDecoder_PseudoRehearsal(VQW2V_RNNDecoder):
+class VQW2V_RNNDecoder_Replay(VQW2V_RNNDecoder):
     def __init__(self, enc_checkpoint_path, decoder_cfg, device):
-        super(VQW2V_RNNDecoder_PseudoRehearsal, self).__init__(enc_checkpoint_path, decoder_cfg, device)
+        super(VQW2V_RNNDecoder_Replay, self).__init__(enc_checkpoint_path, decoder_cfg, device)
 
     def forward(self, audio, mu_audio, speakers):
         with torch.no_grad():
@@ -283,14 +283,18 @@ class VQW2V_RNNDecoder_PseudoRehearsal(VQW2V_RNNDecoder):
         ###
         ### pre
         pre_audio, pre_speakers = batch_pre['audio'].to(self.device), batch_pre['speakers'].to(self.device)
-        pre_idxs = batch_pre['idxs'].to(self.device)
-        
         pre_audio = pre_audio.view(-1, pre_audio.size(-1))
         pre_mu_audio =  aF.mu_law_encoding(pre_audio, self.quantization_channels)
         pre_speakers = pre_speakers.flatten()
-        pre_idxs = pre_idxs.view(-1, pre_idxs.size(-2), pre_idxs.size(-1))
-        pre_idxs1, pre_idxs2 = pre_idxs[:,:,0], pre_idxs[:,:,1]
 
+        if 'idxs' in batch_pre:
+            pre_idxs = batch_pre['idxs'].to(self.device)
+            pre_idxs = pre_idxs.view(-1, pre_idxs.size(-2), pre_idxs.size(-1))
+            pre_idxs1, pre_idxs2 = pre_idxs[:,:,0], pre_idxs[:,:,1]
+        else:
+            with torch.no_grad():
+                pre_idxs = self.encoder.encode(pre_audio[:, :-1])
+                pre_idxs1, pre_idxs2 = pre_idxs[:,:,0], pre_idxs[:,:,1]
         # decode
         pre_output = self.decoder(pre_mu_audio[:, :-1], pre_idxs1, pre_idxs2, pre_speakers, pre_mu_audio.size(1)-1)
 
