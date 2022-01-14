@@ -309,33 +309,38 @@ class VQW2V_RNNDecoder_Replay(VQW2V_RNNDecoder):
         self.encoder.eval()
         self.decoder.eval()
         with torch.no_grad():
-            # -- fine
+            ### fine
             fine_audio, fine_speakers = batch_fine['audio'].to(self.device), batch_fine['speakers'].to(self.device)
-            ## adjust tensor size
+            # adjust tensor size
             fine_audio = fine_audio.view(-1, fine_audio.size(-1))
             fine_speakers = fine_speakers.flatten() 
             fine_mu_audio =  aF.mu_law_encoding(fine_audio, self.quantization_channels)
 
-            ## encode
+            # encode
+            
             fine_idxs = self.encoder.encode(fine_audio[:, :-1])
             fine_idxs1, fine_idxs2 = fine_idxs[:,:,0], fine_idxs[:,:,1]
-            ## decode
+            
+            # decode
             fine_output = self.decoder(fine_mu_audio[:, :-1], fine_idxs1, fine_idxs2, fine_speakers,fine_mu_audio.size(1)-1)
 
-            # --
-            # -- pre
+            ###
+            ### pre
             pre_audio, pre_speakers = batch_pre['audio'].to(self.device), batch_pre['speakers'].to(self.device)
-            pre_idxs = batch_pre['idxs'].to(self.device)
-            
             pre_audio = pre_audio.view(-1, pre_audio.size(-1))
             pre_mu_audio =  aF.mu_law_encoding(pre_audio, self.quantization_channels)
             pre_speakers = pre_speakers.flatten()
-            pre_idxs = pre_idxs.view(-1, pre_idxs.size(-2), pre_idxs.size(-1))
-            pre_idxs1, pre_idxs2 = pre_idxs[:,:,0], pre_idxs[:,:,1]
 
-            ## decode
+            if 'idxs' in batch_pre:
+                pre_idxs = batch_pre['idxs'].to(self.device)
+                pre_idxs = pre_idxs.view(-1, pre_idxs.size(-2), pre_idxs.size(-1))
+                pre_idxs1, pre_idxs2 = pre_idxs[:,:,0], pre_idxs[:,:,1]
+            else:
+                
+                pre_idxs = self.encoder.encode(pre_audio[:, :-1])
+                pre_idxs1, pre_idxs2 = pre_idxs[:,:,0], pre_idxs[:,:,1]
+            # decode
             pre_output = self.decoder(pre_mu_audio[:, :-1], pre_idxs1, pre_idxs2, pre_speakers, pre_mu_audio.size(1)-1)
-
             ## calculate loss
             output = torch.cat([ fine_output, pre_output], dim=0)
             mu_audio = torch.cat( [ fine_mu_audio, pre_mu_audio], dim=0)
