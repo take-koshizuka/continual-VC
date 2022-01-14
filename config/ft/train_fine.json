@@ -9,7 +9,7 @@
     "random_split": true,
     "dataset" : {
         "folder_in_archive": "ARCTIC",
-        "batch_size" : 50,
+        "batch_size" : 32,
         "sr" : 16000,
         "sample_frames" : 32,
         "hop_length": 160
