@@ -141,7 +141,9 @@ def main(train_config_path, checkpoint_dir, resume_path=""):
                 tr_it_pre = iter(tr_dl_pre)
                 train_batch_pre = next(tr_it_pre)
             
-            train_batch = torch.cat([train_batch_fine, train_batch_pre], dim=0)
+            train_batch = {
+                key: torch.cat([train_batch_fine[key], train_batch_pre[key]], dim=0) for key in train_batch_fine.keys() 
+            }
             optimizer.zero_grad()
             
             out = model.training_step(train_batch, batch_idx)
@@ -170,7 +172,10 @@ def main(train_config_path, checkpoint_dir, resume_path=""):
                 va_it_pre = iter(va_dl_pre)
                 val_batch_pre = next(va_it_pre)
             
-            val_batch = torch.cat([val_batch_fine, val_batch_pre], dim=0)
+            val_batch = {
+                key: torch.cat([val_batch_fine[key], val_batch_pre[key]], dim=0) for key in val_batch_fine.keys() 
+            }
+
             out = model.validation_step(val_batch, batch_idx)
             outputs.append(out)
             
