@@ -252,9 +252,9 @@ class VQW2V_RNNDecoder(nn.Module):
             amp.load_state_dict(checkpoint["amp"])
     
 
-class VQW2V_RNNDecoder_Replay(VQW2V_RNNDecoder):
+class VQW2V_RNNDecoder_PseudoRehearsal(VQW2V_RNNDecoder):
     def __init__(self, enc_checkpoint_path, decoder_cfg, device):
-        super(VQW2V_RNNDecoder_Replay, self).__init__(enc_checkpoint_path, decoder_cfg, device)
+        super(VQW2V_RNNDecoder_PseudoRehearsal, self).__init__(enc_checkpoint_path, decoder_cfg, device)
 
     def forward(self, audio, mu_audio, speakers):
         with torch.no_grad():

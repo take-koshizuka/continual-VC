@@ -7,7 +7,7 @@ import torch.optim as optim
 from torch.utils.tensorboard import SummaryWriter
 
 from dataset import BalanceWavDataset, PseudoWavDataset
-from model import VQW2V_RNNDecoder_Replay
+from model import VQW2V_RNNDecoder_PseudoRehearsal
 from utils import EarlyStopping, get_metadata
 from tqdm import tqdm
 from pathlib import Path
@@ -92,7 +92,7 @@ def main(train_config_path, checkpoint_dir, resume_path=""):
     tr_it_pre = iter(tr_dl_pre)
     va_it_pre = iter(va_dl_pre)
     
-    model = VQW2V_RNNDecoder_Replay(cfg['encoder'], cfg['decoder'], device)
+    model = VQW2V_RNNDecoder_PseudoRehearsal(cfg['encoder'], cfg['decoder'], device)
     model.to(device)
 
     optimizer = optim.Adam(
