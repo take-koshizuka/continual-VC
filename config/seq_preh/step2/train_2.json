@@ -1,23 +1,23 @@
 {
     "seed" : 57,
     "epochs": 500,
-    "checkpoint_period": 500,
+    "checkpoint_period": 100,
     "pre":{
         "path_list_dir": "pseudo_data_list",
-        "speakers": ["aew", "lnh", "awb", "ljm"],
-        "train_size": 50,
-        "val_size": 20
+        "speakers": ["rms"],
+        "train_size": 150,
+        "val_size": 50
     },
     "fine":{
         "path_list_dir": "data_list",
-        "speakers": ["rms", "slt"],
-        "train_size": 50,
-        "val_size": 20
+        "speakers": ["slt"],
+        "train_size": 443,
+        "val_size": 50
     },
     "random_split": false,
     "dataset" : {
         "folder_in_archive": "ARCTIC",
-        "folder_pseudo_speech": "pseudo_speech",
+        "folder_pseudo_speech": "pseudo_speech/seq_preh",
         "batch_size_per_class_fine" : 4,
         "batch_size_per_class_pre" : 4,
         "sr" : 16000,
@@ -25,7 +25,7 @@
         "hop_length": 160
     },
     "encoder" : "checkpoints/vq-wav2vec.pt",
-    "decoder_checkpoint" : "checkpoints/baseline493/best-model.pt",
+    "decoder_checkpoint" : "checkpoints/seq_preh/step1/best-model.pt",
     "decoder" : {
         "code_book_num": 320,
         "code_embedding_dim": 128,

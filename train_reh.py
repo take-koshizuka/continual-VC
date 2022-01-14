@@ -7,7 +7,7 @@ from torch.utils.data import DataLoader
 import torch.optim as optim
 from torch.utils.tensorboard import SummaryWriter
 
-from dataset import BalanceWavDataset
+from dataset import WavDataset, MPerClassSampler
 from model import VQW2V_RNNDecoder_Replay
 from utils import EarlyStopping, get_metadata
 from tqdm import tqdm
@@ -44,7 +44,7 @@ def main(train_config_path, checkpoint_dir, resume_path=""):
     train_metadata_pre, val_metadata_pre = get_metadata(cfg['pre']['path_list_dir'], cfg["pre"]["speakers"], train_size=cfg["pre"]["train_size"], 
                                                             val_size=cfg["pre"]["val_size"], random_split=cfg['random_split'])
 
-    tr_ds_fine = BalanceWavDataset(
+    tr_ds_fine = WavDataset(
         root=cfg['dataset']['folder_in_archive'],
         sr=cfg['dataset']['sr'],
         sample_frames=cfg['dataset']['sample_frames'],
@@ -52,7 +52,7 @@ def main(train_config_path, checkpoint_dir, resume_path=""):
         metadata=train_metadata_fine
     )
 
-    va_ds_fine = BalanceWavDataset(
+    va_ds_fine = WavDataset(
         root=cfg['dataset']['folder_in_archive'],
         sr=cfg['dataset']['sr'],
         sample_frames=cfg['dataset']['sample_frames'],
@@ -60,7 +60,7 @@ def main(train_config_path, checkpoint_dir, resume_path=""):
         metadata=val_metadata_fine
     )
 
-    tr_ds_pre = BalanceWavDataset(
+    tr_ds_pre = WavDataset(
         root=cfg['dataset']['folder_in_archive'],
         sr=cfg['dataset']['sr'],
         sample_frames=cfg['dataset']['sample_frames'],
@@ -68,7 +68,7 @@ def main(train_config_path, checkpoint_dir, resume_path=""):
         metadata=train_metadata_pre
     )
     
-    va_ds_pre = BalanceWavDataset(
+    va_ds_pre = WavDataset(
         root=cfg['dataset']['folder_in_archive'],
         sr=cfg['dataset']['sr'],
         sample_frames=cfg['dataset']['sample_frames'],
@@ -76,19 +76,20 @@ def main(train_config_path, checkpoint_dir, resume_path=""):
         metadata=val_metadata_pre
     )
 
+    sampler_fine = MPerClassSampler(tr_ds_fine.labels, m=cfg['dataset']['batch_size_per_class_fine'], length_before_new_iter=len(tr_ds_fine))
     tr_dl_fine = DataLoader(tr_ds_fine,
-                    batch_size=cfg['dataset']['batch_size_fine'],
                     shuffle=True,
-                    drop_last=True)
+                    drop_last=True,
+                    batch_sampler=sampler_fine)
 
-    
+    sampler_pre = MPerClassSampler(tr_ds_pre.labels, m=cfg['dataset']['batch_size_per_class_pre'], length_before_new_iter=len(tr_ds_pre))
     tr_dl_pre = DataLoader(tr_ds_pre,
-                    batch_size=cfg['dataset']['batch_size_pre'],
                     shuffle=True,
-                    drop_last=True)
+                    drop_last=True,
+                    batch_sampler=sampler_pre)
 
-    va_dl_fine = DataLoader(va_ds_fine, batch_size=cfg['dataset']['batch_size_fine'], drop_last=False)
-    va_dl_pre = DataLoader(va_ds_pre, batch_size=cfg['dataset']['batch_size_pre'], drop_last=False)
+    va_dl_fine = DataLoader(va_ds_fine, batch_size=50, drop_last=False)
+    va_dl_pre = DataLoader(va_ds_pre, batch_size=50, drop_last=False)
     
     tr_it_pre = iter(tr_dl_pre)
     va_it_pre = iter(va_dl_pre)
@@ -194,6 +195,7 @@ def main(train_config_path, checkpoint_dir, resume_path=""):
             torch.save(state_dict, str(checkpoint_dir / f"model-{i}.pt"))
     
     best_state = early_stopping.best_state
+    print(f"save_checkpoint epoch:{best_state['epochs']}")
     torch.save(best_state, str(checkpoint_dir / "best-model.pt"))
     with open(str(checkpoint_dir / "train_config.json"), "w") as f:
         json.dump(cfg, f, indent=4)

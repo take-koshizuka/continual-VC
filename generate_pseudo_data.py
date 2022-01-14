@@ -9,6 +9,7 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader
 
+from utils import get_metadata_generate
 from dataset import ConversionDataset
 from model import VQW2V_RNNDecoder
 
@@ -43,13 +44,23 @@ def main(convert_config_path, checkpoint_path, outdir):
 
     fix_seed(cfg['seed'])
 
+    metadata = get_metadata_generate(cfg['dataset']['folder_in_archive'], cfg['source'], cfg["target"], cfg['size'])
+
+    for speaker in cfg["target"]:
+        Path(cfg['pseudo_data_list_dir']).mkdir(exist_ok=True, parents=True)
+        path = Path(cfg['pseudo_data_list_dir']) / f"train_val_{speaker}.json"
+        lst = [ [tar, cv_name] for _, tar, _, cv_name in metadata]
+        with open(str(path), 'w') as f:
+            json.dump(lst,f, indent=4)
+
     ds = ConversionDataset(
         root=cfg['dataset']['folder_in_archive'],
         outdir=outdir,
-        synthesis_list_path=cfg['dataset']['synthesis_list_path'],
         sr=cfg['dataset']['sr'],
-        unlabeled=True
+        unlabeled=True,
+        metadata=metadata
     )
+
     dl = DataLoader(ds, batch_size=1)
 
     model = VQW2V_RNNDecoder(cfg['encoder'], cfg['decoder'], device)
@@ -79,8 +90,6 @@ def main(convert_config_path, checkpoint_path, outdir):
         del out
         del batch
         gc.collect()
-
-        
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()

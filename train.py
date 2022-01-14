@@ -149,6 +149,7 @@ def main(train_config_path, checkpoint_dir, resume_path=""):
             torch.save(state_dict, str(checkpoint_dir / f"model-{i}.pt"))
     
     best_state = early_stopping.best_state
+    print(f"save_checkpoint epoch:{best_state['epochs']}")
     torch.save(best_state, str(checkpoint_dir / "best-model.pt"))
     with open(str(checkpoint_dir / "train_config.json"), "w") as f:
         json.dump(cfg, f, indent=4)

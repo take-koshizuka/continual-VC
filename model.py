@@ -269,8 +269,8 @@ class VQW2V_RNNDecoder_Replay(VQW2V_RNNDecoder):
         ### fine
         fine_audio, fine_speakers = batch_fine['audio'].to(self.device), batch_fine['speakers'].to(self.device)
         # adjust tensor size
-        fine_audio = fine_audio.view(-1, fine_audio.size(-1))
-        fine_speakers = fine_speakers.flatten() 
+        #fine_audio = fine_audio.view(-1, fine_audio.size(-1))
+        #fine_speakers = fine_speakers.flatten() 
         fine_mu_audio =  aF.mu_law_encoding(fine_audio, self.quantization_channels)
 
         # encode
@@ -283,13 +283,13 @@ class VQW2V_RNNDecoder_Replay(VQW2V_RNNDecoder):
         ###
         ### pre
         pre_audio, pre_speakers = batch_pre['audio'].to(self.device), batch_pre['speakers'].to(self.device)
-        pre_audio = pre_audio.view(-1, pre_audio.size(-1))
+        #pre_audio = pre_audio.view(-1, pre_audio.size(-1))
         pre_mu_audio =  aF.mu_law_encoding(pre_audio, self.quantization_channels)
-        pre_speakers = pre_speakers.flatten()
+        #pre_speakers = pre_speakers.flatten()
 
         if 'idxs' in batch_pre:
             pre_idxs = batch_pre['idxs'].to(self.device)
-            pre_idxs = pre_idxs.view(-1, pre_idxs.size(-2), pre_idxs.size(-1))
+            # pre_idxs = pre_idxs.view(-1, pre_idxs.size(-2), pre_idxs.size(-1))
             pre_idxs1, pre_idxs2 = pre_idxs[:,:,0], pre_idxs[:,:,1]
         else:
             with torch.no_grad():
@@ -312,8 +312,8 @@ class VQW2V_RNNDecoder_Replay(VQW2V_RNNDecoder):
             ### fine
             fine_audio, fine_speakers = batch_fine['audio'].to(self.device), batch_fine['speakers'].to(self.device)
             # adjust tensor size
-            fine_audio = fine_audio.view(-1, fine_audio.size(-1))
-            fine_speakers = fine_speakers.flatten() 
+            #fine_audio = fine_audio.view(-1, fine_audio.size(-1))
+            #fine_speakers = fine_speakers.flatten() 
             fine_mu_audio =  aF.mu_law_encoding(fine_audio, self.quantization_channels)
 
             # encode
@@ -327,13 +327,13 @@ class VQW2V_RNNDecoder_Replay(VQW2V_RNNDecoder):
             ###
             ### pre
             pre_audio, pre_speakers = batch_pre['audio'].to(self.device), batch_pre['speakers'].to(self.device)
-            pre_audio = pre_audio.view(-1, pre_audio.size(-1))
+            #pre_audio = pre_audio.view(-1, pre_audio.size(-1))
             pre_mu_audio =  aF.mu_law_encoding(pre_audio, self.quantization_channels)
-            pre_speakers = pre_speakers.flatten()
+            #pre_speakers = pre_speakers.flatten()
 
             if 'idxs' in batch_pre:
                 pre_idxs = batch_pre['idxs'].to(self.device)
-                pre_idxs = pre_idxs.view(-1, pre_idxs.size(-2), pre_idxs.size(-1))
+                #pre_idxs = pre_idxs.view(-1, pre_idxs.size(-2), pre_idxs.size(-1))
                 pre_idxs1, pre_idxs2 = pre_idxs[:,:,0], pre_idxs[:,:,1]
             else:
                 

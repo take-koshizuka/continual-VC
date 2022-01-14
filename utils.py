@@ -9,6 +9,7 @@ import pysptk
 import jiwer
 import pyworld as pw
 import Levenshtein as Lev
+import collections
 from scipy.spatial.distance import euclidean
 from fastdtw import fastdtw
 from pathlib import Path
@@ -37,7 +38,6 @@ def get_metadata(path_list_dir, speakers, train_size, val_size, random_split=Tru
 def get_metadata_test(path_list_dir, speakers):
     # path_list_dir: data_list or pseudo_data_list
     test_metadata = []
-
     path_list = [  Path(path_list_dir) / f"test_{sp}.json" for sp in speakers ]
     for path in path_list:
         with open(str(path)) as f:
@@ -45,6 +45,52 @@ def get_metadata_test(path_list_dir, speakers):
         
         test_metadata.extend(lst)
     return test_metadata
+
+def get_metadata_generate(root, source, targets, size):
+    metadata = []
+    path = (Path(root) / Path(f"cmu_us_{source}_arctic/wav"))
+    wav_list = path.rglob('*.wav')
+    wav_list = [ file_path.stem for file_path in wav_list ]
+
+    for target in targets:
+        np.random.shuffle(wav_list)
+        clipped_wav_list = wav_list[:size]
+        for wav_name in clipped_wav_list:
+            metadata.append([
+                source,
+                target,
+                wav_name,
+                f"{target}-{wav_name}"
+            ])
+    return metadata
+
+def get_labels_to_indices(labels):
+    """
+    Creates labels_to_indices, which is a dictionary mapping each label
+    to a numpy array of indices that will be used to index into self.dataset
+    """
+    if torch.is_tensor(labels):
+        labels = labels.cpu().numpy()
+    labels_to_indices = collections.defaultdict(list)
+    for i, label in enumerate(labels):
+        labels_to_indices[label].append(i)
+    for k, v in labels_to_indices.items():
+        labels_to_indices[k] = np.array(v, dtype=int)
+    return labels_to_indices
+
+def safe_random_choice(input_data, size):
+    """
+    Randomly samples without replacement from a sequence. It is "safe" because
+    if len(input_data) < size, it will randomly sample WITH replacement
+    Args:
+        input_data is a sequence, like a torch tensor, numpy array,
+                        python list, tuple etc
+        size is the number of elements to randomly sample from input_data
+    Returns:
+        An array of size "size", randomly sampled from input_data
+    """
+    replace = len(input_data) < size
+    return np.random.choice(input_data, size=size, replace=replace)
 
 class EarlyStopping(object):
     def __init__(self, monitor='loss', direction='min'):

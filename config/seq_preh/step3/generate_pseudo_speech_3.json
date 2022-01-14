@@ -1,0 +1,25 @@
+{
+    "seed" : 57,
+    "source" : "gka",
+    "target" : ["aew"],
+    "size": 200,
+    "pseudo_data_list_dir": "pseudo_data_list/seq_preh/step3",
+    "dataset" : {
+        "folder_in_archive": "ARCTIC",
+        "sr" : 16000
+    },
+    "encoder" : "checkpoints/vq-wav2vec.pt",
+    "decoder" : {
+        "code_book_num": 320,
+        "code_embedding_dim": 128,
+        "conditioning_channels": 128,
+        "n_speakers": 18,
+        "speaker_embedding_dim": 64,
+        "mu_embedding_dim": 256,
+        "rnn_channels": 896,
+        "rnn_layers_num": 2,
+        "fc_channels": 256,
+        "bits": 8,
+        "hop_length": 160
+    }
+}
