@@ -64,34 +64,6 @@ def get_metadata_generate(root, source, targets, size):
             ])
     return metadata
 
-def get_labels_to_indices(labels):
-    """
-    Creates labels_to_indices, which is a dictionary mapping each label
-    to a numpy array of indices that will be used to index into self.dataset
-    """
-    if torch.is_tensor(labels):
-        labels = labels.cpu().numpy()
-    labels_to_indices = collections.defaultdict(list)
-    for i, label in enumerate(labels):
-        labels_to_indices[label].append(i)
-    for k, v in labels_to_indices.items():
-        labels_to_indices[k] = np.array(v, dtype=int)
-    return labels_to_indices
-
-def safe_random_choice(input_data, size):
-    """
-    Randomly samples without replacement from a sequence. It is "safe" because
-    if len(input_data) < size, it will randomly sample WITH replacement
-    Args:
-        input_data is a sequence, like a torch tensor, numpy array,
-                        python list, tuple etc
-        size is the number of elements to randomly sample from input_data
-    Returns:
-        An array of size "size", randomly sampled from input_data
-    """
-    replace = len(input_data) < size
-    return np.random.choice(input_data, size=size, replace=replace)
-
 class EarlyStopping(object):
     def __init__(self, monitor='loss', direction='min'):
         self.monitor = monitor

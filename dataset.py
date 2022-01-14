@@ -1,14 +1,13 @@
 from os import curdir
 import torch
 from torch.utils.data import Dataset
-from torch.utils.data.sampler import Sampler
 import torch.nn.functional as F
 import json
 import random
 import numpy as np
 import librosa
 from pathlib import Path
-from utils import get_labels_to_indices, safe_random_choice
+from torch.utils.data.sampler import BatchSampler
 
 SPEAKERS = [
     "aew",
@@ -173,57 +172,41 @@ class Utterance:
         return self.filename2utterance[filename]
 
 
-class MPerClassSampler(Sampler):
+class BalancedBatchSampler(BatchSampler):
     """
-    At every iteration, this will return m samples per class. For example,
-    if dataloader's batchsize is 100, and m = 5, then 20 classes with 5 samples
-    each will be returned
+    BatchSampler - from a MNIST-like dataset, samples n_classes and within these classes samples n_samples.
+    Returns batches of size n_classes * n_samples
     """
-    def __init__(self, labels, m, batch_size=None, length_before_new_iter=100000):
-        if isinstance(labels, torch.Tensor):
-            labels = labels.numpy()
-        self.m_per_class = int(m)
-        self.batch_size = int(batch_size) if batch_size is not None else batch_size
-        self.labels_to_indices = get_labels_to_indices(labels)
-        self.labels = list(self.labels_to_indices.keys())
-        self.length_of_single_pass = self.m_per_class * len(self.labels)
-        self.list_size = length_before_new_iter
-        if self.batch_size is None:
-            if self.length_of_single_pass < self.list_size:
-                self.list_size -= (self.list_size) % (self.length_of_single_pass)
-        else:
-            assert self.list_size >= self.batch_size
-            assert (
-                self.length_of_single_pass >= self.batch_size
-            ), "m * (number of unique labels) must be >= batch_size"
-            assert (
-                self.batch_size % self.m_per_class
-            ) == 0, "m_per_class must divide batch_size without any remainder"
-            self.list_size -= self.list_size % self.batch_size
 
-    def __len__(self):
-        return self.list_size
+    def __init__(self, dataset, n_samples):
+        self.labels = torch.LongTensor(dataset.labels)
+        self.labels_set = list(set(self.labels.numpy()))
+        self.label_to_indices = {label: np.where(self.labels.numpy() == label)[0]
+                                 for label in self.labels_set}
+        for l in self.labels_set:
+            np.random.shuffle(self.label_to_indices[l])
+        self.used_label_indices_count = {label: 0 for label in self.labels_set}
+        self.count = 0
+        self.n_classes = len(self.labels_set)
+        self.n_samples = n_samples
+        self.dataset = dataset
+        self.batch_size = self.n_samples * self.n_classes
 
     def __iter__(self):
-        idx_list = [0] * self.list_size
-        i = 0
-        num_iters = self.calculate_num_iters()
-        for _ in range(num_iters):
-            np.random.shuffle(self.labels)
-            if self.batch_size is None:
-                curr_label_set = self.labels
-            else:
-                curr_label_set = self.labels[: self.batch_size // self.m_per_class]
-            for label in curr_label_set:
-                t = self.labels_to_indices[label]
-                idx_list[i : i + self.m_per_class] = safe_random_choice(
-                    t, size=self.m_per_class
-                )
-                i += self.m_per_class
-        return iter(idx_list)
+        self.count = 0
+        while self.count + self.batch_size < len(self.dataset):
+            classes = np.random.choice(self.labels_set, self.n_classes, replace=False)
+            indices = []
+            for class_ in classes:
+                indices.extend(self.label_to_indices[class_][
+                               self.used_label_indices_count[class_]:self.used_label_indices_count[
+                                                                         class_] + self.n_samples])
+                self.used_label_indices_count[class_] += self.n_samples
+                if self.used_label_indices_count[class_] + self.n_samples > len(self.label_to_indices[class_]):
+                    np.random.shuffle(self.label_to_indices[class_])
+                    self.used_label_indices_count[class_] = 0
+            yield indices
+            self.count += self.n_classes * self.n_samples
 
-    def calculate_num_iters(self):
-        divisor = (
-            self.length_of_single_pass if self.batch_size is None else self.batch_size
-        )
-        return self.list_size // divisor if divisor < self.list_size else 1
+    def __len__(self):
+        return len(self.dataset) // self.batch_size
