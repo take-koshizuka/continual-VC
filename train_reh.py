@@ -79,7 +79,7 @@ def main(train_config_path, checkpoint_dir, resume_path=""):
     batch_sampler_fine = BalancedBatchSampler(tr_ds_fine, cfg['dataset']['batch_size_per_class_fine'])
     tr_dl_fine = DataLoader(tr_ds_fine, batch_sampler=batch_sampler_fine)
 
-    batch_sampler_pre = BalancedBatchSampler(tr_ds_pre.labels, cfg['dataset']['batch_size_per_class_pre'])
+    batch_sampler_pre = BalancedBatchSampler(tr_ds_pre, cfg['dataset']['batch_size_per_class_pre'])
     tr_dl_pre = DataLoader(tr_ds_pre, batch_sampler=batch_sampler_pre)
 
     va_dl_fine = DataLoader(va_ds_fine, batch_size=50, drop_last=False)
