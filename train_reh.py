@@ -61,7 +61,7 @@ def main(train_config_path, checkpoint_dir, resume_path=""):
     )
 
     tr_ds_pre = BalanceWavDataset(
-        root=cfg['dataset']['folder_pseudo_speech'],
+        root=cfg['dataset']['folder_in_archive'],
         sr=cfg['dataset']['sr'],
         sample_frames=cfg['dataset']['sample_frames'],
         hop_length=cfg['dataset']['hop_length'],
@@ -69,7 +69,7 @@ def main(train_config_path, checkpoint_dir, resume_path=""):
     )
     
     va_ds_pre = BalanceWavDataset(
-        root=cfg['dataset']['folder_pseudo_speech'],
+        root=cfg['dataset']['folder_in_archive'],
         sr=cfg['dataset']['sr'],
         sample_frames=cfg['dataset']['sample_frames'],
         hop_length=cfg['dataset']['hop_length'],

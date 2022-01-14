@@ -313,9 +313,8 @@ class VQW2V_RNNDecoder_Replay(VQW2V_RNNDecoder):
             fine_mu_audio =  aF.mu_law_encoding(fine_audio, self.quantization_channels)
 
             ## encode
-            with torch.no_grad():
-                fine_idxs = self.encoder.encode(fine_audio[:, :-1])
-                fine_idxs1, fine_idxs2 = fine_idxs[:,:,0], fine_idxs[:,:,1]
+            fine_idxs = self.encoder.encode(fine_audio[:, :-1])
+            fine_idxs1, fine_idxs2 = fine_idxs[:,:,0], fine_idxs[:,:,1]
             ## decode
             fine_output = self.decoder(fine_mu_audio[:, :-1], fine_idxs1, fine_idxs2, fine_speakers,fine_mu_audio.size(1)-1)
 
