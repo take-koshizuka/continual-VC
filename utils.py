@@ -198,7 +198,7 @@ class WordErrorRate:
     def compute(self):
         if not self.target_speakers is None:
             scores = { sp: (float(self.score_per_speaker[sp]['wer']) / self.score_per_speaker[sp]['n_words'])*100 for sp in self.target_speakers }
-        scores['all'] = float(self.wer) / self.n_words
+        scores['all'] = (float(self.wer) / self.n_words) * 100
         return scores
     
     def wer_calc(self, s1, s2):
