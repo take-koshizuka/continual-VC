@@ -1,10 +1,11 @@
 {
     "seed" : 57,
-    "name": "fine",
+    "name": "pre",
+    "speakers": ["awb", "aew", "ljm", "lnh"],
+    "path_list_dir": "data_list",
     "dataset" : {
         "folder_in_archive": "ARCTIC",
-        "sr" : 16000,
-        "synthesis_list_path": "data_list/test_fine.json"
+        "sr" : 16000
     },
     "encoder" : "checkpoints/vq-wav2vec.pt",
     "decoder" : {

@@ -34,6 +34,18 @@ def get_metadata(path_list_dir, speakers, train_size, val_size, random_split=Tru
 
     return train_metadata, val_metadata
 
+def get_metadata_test(path_list_dir, speakers):
+    # path_list_dir: data_list or pseudo_data_list
+    test_metadata = []
+
+    path_list = [  Path(path_list_dir) / f"test_{sp}.json" for sp in speakers ]
+    for path in path_list:
+        with open(str(path)) as f:
+            lst = json.load(f)
+        
+        test_metadata.extend(lst)
+    return test_metadata
+
 class EarlyStopping(object):
     def __init__(self, monitor='loss', direction='min'):
         self.monitor = monitor

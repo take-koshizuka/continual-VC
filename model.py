@@ -252,9 +252,9 @@ class VQW2V_RNNDecoder(nn.Module):
             amp.load_state_dict(checkpoint["amp"])
     
 
-class VQW2V_RNNDecoder_PseudoRehearsal(VQW2V_RNNDecoder):
+class VQW2V_RNNDecoder_Replay(VQW2V_RNNDecoder):
     def __init__(self, enc_checkpoint_path, decoder_cfg, device):
-        super(VQW2V_RNNDecoder_PseudoRehearsal, self).__init__(enc_checkpoint_path, decoder_cfg, device)
+        super(VQW2V_RNNDecoder_Replay, self).__init__(enc_checkpoint_path, decoder_cfg, device)
 
     def forward(self, audio, mu_audio, speakers):
         with torch.no_grad():
@@ -266,30 +266,37 @@ class VQW2V_RNNDecoder_PseudoRehearsal(VQW2V_RNNDecoder):
     def training_step(self, batch_fine, batch_pre, batch_idx):
         self.encoder.eval()
         self.decoder.train()
-        cur_audio, cur_speakers = batch_fine['audio'].to(self.device), batch_fine['speakers'].to(self.device)
-        past_audio, past_speakers = batch_pre['audio'].to(self.device), batch_pre['speakers'].to(self.device)
-        past_idxs = batch_pre['idxs'].to(self.device)
+        ### fine
+        fine_audio, fine_speakers = batch_fine['audio'].to(self.device), batch_fine['speakers'].to(self.device)
+        # adjust tensor size
+        fine_audio = fine_audio.view(-1, fine_audio.size(-1))
+        fine_speakers = fine_speakers.flatten() 
+        fine_mu_audio =  aF.mu_law_encoding(fine_audio, self.quantization_channels)
 
-        cur_audio = cur_audio.view(-1, cur_audio.size(-1))
-        cur_speakers = cur_speakers.flatten() 
-        cur_mu_audio =  aF.mu_law_encoding(cur_audio, self.quantization_channels)
-        past_audio = past_audio.view(-1, past_audio.size(-1))
-        past_speakers = past_speakers.flatten()
-        
-        past_mu_audio =  aF.mu_law_encoding(past_audio, self.quantization_channels)
-        past_idxs = past_idxs.view(-1, past_idxs.size(-2), past_idxs.size(-1))
-
+        # encode
         with torch.no_grad():
-            cur_idxs = self.encoder.encode(cur_audio[:, :-1])
+            fine_idxs = self.encoder.encode(fine_audio[:, :-1])
+            fine_idxs1, fine_idxs2 = fine_idxs[:,:,0], fine_idxs[:,:,1]
+        # decode
+        fine_output = self.decoder(fine_mu_audio[:, :-1], fine_idxs1, fine_idxs2, fine_speakers,fine_mu_audio.size(1)-1)
+
+        ###
+        ### pre
+        pre_audio, pre_speakers = batch_pre['audio'].to(self.device), batch_pre['speakers'].to(self.device)
+        pre_idxs = batch_pre['idxs'].to(self.device)
         
-        cur_idxs1, cur_idxs2 = cur_idxs[:,:,0], cur_idxs[:,:,1]
-        cur_output = self.decoder(cur_mu_audio[:, :-1], cur_idxs1, cur_idxs2, cur_speakers,cur_mu_audio.size(1)-1)
+        pre_audio = pre_audio.view(-1, pre_audio.size(-1))
+        pre_mu_audio =  aF.mu_law_encoding(pre_audio, self.quantization_channels)
+        pre_speakers = pre_speakers.flatten()
+        pre_idxs = pre_idxs.view(-1, pre_idxs.size(-2), pre_idxs.size(-1))
+        pre_idxs1, pre_idxs2 = pre_idxs[:,:,0], pre_idxs[:,:,1]
 
-        past_idxs1, past_idxs2 = past_idxs[:,:,0], past_idxs[:,:,1]
-        past_output = self.decoder(past_mu_audio[:, :-1], past_idxs1, past_idxs2, past_speakers, past_mu_audio.size(1)-1)
+        # decode
+        pre_output = self.decoder(pre_mu_audio[:, :-1], pre_idxs1, pre_idxs2, pre_speakers, pre_mu_audio.size(1)-1)
 
-        output = torch.cat([ cur_output, past_output], dim=0)
-        mu_audio = torch.cat( [ cur_mu_audio, past_mu_audio], dim=0)
+        # calculate loss
+        output = torch.cat([ fine_output, pre_output], dim=0)
+        mu_audio = torch.cat( [ fine_mu_audio, pre_mu_audio], dim=0)
         loss = F.cross_entropy(output.transpose(1, 2), mu_audio[:, 1:])
 
         return { 'loss' : loss }
@@ -298,30 +305,40 @@ class VQW2V_RNNDecoder_PseudoRehearsal(VQW2V_RNNDecoder):
         self.encoder.eval()
         self.decoder.eval()
         with torch.no_grad():
-            cur_audio, cur_speakers = batch_fine['audio'].to(self.device), batch_fine['speakers'].to(self.device)
-            past_audio, past_speakers = batch_pre['audio'].to(self.device), batch_pre['speakers'].to(self.device)
-            past_idxs = batch_pre['idxs'].to(self.device)
+            # -- fine
+            fine_audio, fine_speakers = batch_fine['audio'].to(self.device), batch_fine['speakers'].to(self.device)
+            ## adjust tensor size
+            fine_audio = fine_audio.view(-1, fine_audio.size(-1))
+            fine_speakers = fine_speakers.flatten() 
+            fine_mu_audio =  aF.mu_law_encoding(fine_audio, self.quantization_channels)
 
-            cur_audio = cur_audio.view(-1, cur_audio.size(-1))
-            cur_speakers = cur_speakers.flatten()
-            cur_mu_audio =  aF.mu_law_encoding(cur_audio, self.quantization_channels)
-            past_audio = past_audio.view(-1, past_audio.size(-1))
-            past_speakers = past_speakers.flatten()
-            past_mu_audio =  aF.mu_law_encoding(past_audio, self.quantization_channels)
-            past_idxs = past_idxs.view(-1, past_idxs.size(-2), past_idxs.size(-1))
+            ## encode
+            with torch.no_grad():
+                fine_idxs = self.encoder.encode(fine_audio[:, :-1])
+                fine_idxs1, fine_idxs2 = fine_idxs[:,:,0], fine_idxs[:,:,1]
+            ## decode
+            fine_output = self.decoder(fine_mu_audio[:, :-1], fine_idxs1, fine_idxs2, fine_speakers,fine_mu_audio.size(1)-1)
 
-            cur_idxs = self.encoder.encode(cur_audio[:, :-1])
+            # --
+            # -- pre
+            pre_audio, pre_speakers = batch_pre['audio'].to(self.device), batch_pre['speakers'].to(self.device)
+            pre_idxs = batch_pre['idxs'].to(self.device)
+            
+            pre_audio = pre_audio.view(-1, pre_audio.size(-1))
+            pre_mu_audio =  aF.mu_law_encoding(pre_audio, self.quantization_channels)
+            pre_speakers = pre_speakers.flatten()
+            pre_idxs = pre_idxs.view(-1, pre_idxs.size(-2), pre_idxs.size(-1))
+            pre_idxs1, pre_idxs2 = pre_idxs[:,:,0], pre_idxs[:,:,1]
 
-            cur_idxs1, cur_idxs2 = cur_idxs[:,:,0], cur_idxs[:,:,1]
-            cur_output = self.decoder(cur_mu_audio[:, :-1], cur_idxs1, cur_idxs2, cur_speakers,cur_mu_audio.size(1)-1)
+            ## decode
+            pre_output = self.decoder(pre_mu_audio[:, :-1], pre_idxs1, pre_idxs2, pre_speakers, pre_mu_audio.size(1)-1)
 
-            past_idxs1, past_idxs2 = past_idxs[:,:,0], past_idxs[:,:,1]
-            past_output = self.decoder(past_mu_audio[:, :-1], past_idxs1, past_idxs2, past_speakers, past_mu_audio.size(1)-1)
-
-            output = torch.cat([ cur_output, past_output], dim=0)
-            mu_audio = torch.cat( [ cur_mu_audio, past_mu_audio], dim=0)
+            ## calculate loss
+            output = torch.cat([ fine_output, pre_output], dim=0)
+            mu_audio = torch.cat( [ fine_mu_audio, pre_mu_audio], dim=0)
             loss = F.cross_entropy(output.transpose(1, 2), mu_audio[:, 1:])
-        
+            # --
+
         return { 'val_loss' : loss.unsqueeze(0) }
 
     def validation_epoch_end(self, outputs):

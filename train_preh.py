@@ -6,8 +6,8 @@ from torch.utils.data import DataLoader
 import torch.optim as optim
 from torch.utils.tensorboard import SummaryWriter
 
-from dataset import WavDataset, PseudoWavDataset
-from model import VQW2V_RNNDecoder_PseudoRehearsal
+from dataset import BalanceWavDataset, PseudoWavDataset
+from model import VQW2V_RNNDecoder_Replay
 from utils import EarlyStopping, get_metadata
 from tqdm import tqdm
 from pathlib import Path
@@ -43,7 +43,7 @@ def main(train_config_path, checkpoint_dir, resume_path=""):
     train_metadata_pre, val_metadata_pre = get_metadata(cfg['pre']['path_list_dir'], cfg["pre"]["speakers"], train_size=cfg["pre"]["train_size"], 
                                                             val_size=cfg["pre"]["val_size"], random_split=cfg['random_split'])
 
-    tr_ds_fine = WavDataset(
+    tr_ds_fine = BalanceWavDataset(
         root=cfg['dataset']['folder_in_archive'],
         sr=cfg['dataset']['sr'],
         sample_frames=cfg['dataset']['sample_frames'],
@@ -51,7 +51,7 @@ def main(train_config_path, checkpoint_dir, resume_path=""):
         metadata=train_metadata_fine
     )
 
-    va_ds_fine = WavDataset(
+    va_ds_fine = BalanceWavDataset(
         root=cfg['dataset']['folder_in_archive'],
         sr=cfg['dataset']['sr'],
         sample_frames=cfg['dataset']['sample_frames'],
@@ -74,14 +74,13 @@ def main(train_config_path, checkpoint_dir, resume_path=""):
         hop_length=cfg['dataset']['hop_length'],
         metadata=val_metadata_pre
     )
-    
-    # 4 * 4
+
     tr_dl_fine = DataLoader(tr_ds_fine,
                     batch_size=cfg['dataset']['batch_size_fine'],
                     shuffle=True,
                     drop_last=True)
 
-    # 4 * 2
+    
     tr_dl_pre = DataLoader(tr_ds_pre,
                     batch_size=cfg['dataset']['batch_size_pre'],
                     shuffle=True,
@@ -93,7 +92,7 @@ def main(train_config_path, checkpoint_dir, resume_path=""):
     tr_it_pre = iter(tr_dl_pre)
     va_it_pre = iter(va_dl_pre)
     
-    model = VQW2V_RNNDecoder_PseudoRehearsal(cfg['encoder'], cfg['decoder'], device)
+    model = VQW2V_RNNDecoder_Replay(cfg['encoder'], cfg['decoder'], device)
     model.to(device)
 
     optimizer = optim.Adam(

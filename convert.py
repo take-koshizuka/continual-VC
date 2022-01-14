@@ -10,6 +10,7 @@ import pyloudnorm
 import scipy.io.wavfile as sw
 from dataset import ConversionDataset
 from model import VQW2V_RNNDecoder
+from utils import get_metadata_test
 from tqdm import tqdm
 from pathlib import Path
 import gc
@@ -30,6 +31,7 @@ def main(convert_config_path, checkpoint_path, wav_dir):
     
     save_wav = (wav_dir != "")
     outdir = Path(checkpoint_path).parent / cfg["name"]
+    outdir.mkdir(exist_ok=True, parents=True)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     if save_wav:
         wav_dir = outdir / wav_dir
@@ -37,10 +39,12 @@ def main(convert_config_path, checkpoint_path, wav_dir):
 
     fix_seed(cfg['seed'])
 
+    test_metadata = get_metadata_test(cfg['path_list_dir'], cfg["speakers"])
+
     ds = ConversionDataset(
         root=cfg['dataset']['folder_in_archive'],
         outdir=wav_dir,
-        synthesis_list_path=cfg['dataset']['synthesis_list_path'],
+        metadata=test_metadata,
         sr=cfg['dataset']['sr']
     )
     
