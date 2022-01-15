@@ -139,6 +139,8 @@ class MelCepstralDistortion:
     def compute(self):
         if not self.target_speakers is None:
             scores = { sp: float(self.score_per_speaker[sp]['mcd']) / self.score_per_speaker[sp]['n_frames'] for sp in self.target_speakers }
+        else:
+            scores = {}
         scores['all'] = float(self.mcd) / self.n_frames
         return scores
     
@@ -190,6 +192,8 @@ class CharErrorRate:
     def compute(self):
         if not self.target_speakers is None:
             scores = { sp: (float(self.score_per_speaker[sp]['cer']) / self.score_per_speaker[sp]['n_chars'])*100 for sp in self.target_speakers }
+        else:
+            scores = {}
         scores['all'] = (float(self.cer) / self.n_chars)*100
         return scores
     
@@ -217,6 +221,8 @@ class WordErrorRate:
     def compute(self):
         if not self.target_speakers is None:
             scores = { sp: (float(self.score_per_speaker[sp]['wer']) / self.score_per_speaker[sp]['n_words'])*100 for sp in self.target_speakers }
+        else:
+            scores = {}
         scores['all'] = (float(self.wer) / self.n_words) * 100
         return scores
     
