@@ -1,7 +1,7 @@
 {
     "seed" : 57,
-    "epochs": 500,
-    "checkpoint_period": 500,
+    "epochs": 300,
+    "checkpoint_period": 50,
     "path_list_dir": "data_list",
     "speakers": ["rms", "slt"],
     "train_size": 50,

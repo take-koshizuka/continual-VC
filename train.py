@@ -52,7 +52,7 @@ def main(train_config_path, checkpoint_dir, resume_path=""):
         root=cfg['dataset']['folder_in_archive'],
         sr=cfg['dataset']['sr'],
         sample_frames=cfg['dataset']['sample_frames'],
-        hop_length=cfg['dataset']['hop_length'],
+        hop_length=cfg['dataset']['hop_length'] * 4,
         metadata=val_metadata
     )
 
@@ -80,7 +80,7 @@ def main(train_config_path, checkpoint_dir, resume_path=""):
                     gamma=cfg['scheduler']['gamma']
                 )
 
-    early_stopping = EarlyStopping('avg_loss', 'min')
+    early_stopping = EarlyStopping('avg_mcd', 'min')
 
     init_epochs = 1
     max_epochs = cfg['epochs']

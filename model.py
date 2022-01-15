@@ -8,8 +8,10 @@ from fairseq.models.wav2vec import Wav2VecModel
 from tqdm import tqdm
 from copy import deepcopy
 import numpy as np
+# from pesq import pesq
 from utils import Wav2Letter, MelCepstralDistortion, WordErrorRate, CharErrorRate, preprocess
 from dataset import SPEAKERS
+
 
 try:
     import apex.amp as amp
@@ -153,14 +155,28 @@ class VQW2V_RNNDecoder(nn.Module):
         audio, speakers = batch['audio'].to(self.device), batch['speakers'].to(self.device)
         mu_audio =  aF.mu_law_encoding(audio, self.quantization_channels).long()
         with torch.no_grad():
-            output = self(audio, mu_audio, speakers)
-            loss = F.cross_entropy(output.transpose(1, 2), mu_audio[:, 1:])
-        return { 'val_loss' : loss.unsqueeze(0) }
+            logits = self(audio, mu_audio, speakers)
+            loss = F.cross_entropy(logits.transpose(1, 2), mu_audio[:, 1:])
+            dist = Categorical(logits=logits)
+            outputs = dist.sample().squeeze()
+            cv = aF.mu_law_decoding(outputs.float(), self.quantization_channels)
+        return { 'val_loss' : loss.unsqueeze(0), 'cv' : cv.cpu().detach(), 'tar' : audio.cpu().detach() }
 
     def validation_epoch_end(self, outputs):
         avg_loss = torch.mean(torch.cat([ out['val_loss'] for out in outputs ], dim=0)).item()
-        logs = { 'avg_val_loss' : avg_loss }
-        return { 'avg_loss' : avg_loss, 'log' : logs }
+        target_audio = [ out['tar'].cpu().numpy() for out in outputs ]
+        cv_audio = [ out['cv'].cpu().numpy() for out in outputs ]
+        mcd = MelCepstralDistortion()
+        for i in range(len(target_audio)):
+            l = len(target_audio[i])
+            for j in range(l):
+                tar  = target_audio[i][j]
+                cv = cv_audio[i][j]
+                mcd.calculate_metric(cv, tar)
+        avg_mcd = mcd.compute()
+        logs = { 'avg_val_loss' : avg_loss, 'avg_mcd' : avg_mcd }
+        return { 'avg_mcd' : avg_mcd, 'log' : logs }
+        # return { 'avg_loss' : avg_loss, 'log' : logs }
 
     def convert(self, audio, speakers):
         with torch.no_grad():

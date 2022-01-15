@@ -15,6 +15,7 @@ from fastdtw import fastdtw
 from pathlib import Path
 
 
+
 PATH_TO_ASR = "checkpoints/wav2vec2-base-960h.pt"
 
 def get_metadata(path_list_dir, speakers, train_size, val_size, random_split=True):
