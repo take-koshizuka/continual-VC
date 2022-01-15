@@ -52,7 +52,7 @@ def main(train_config_path, checkpoint_dir, resume_path=""):
         root=cfg['dataset']['folder_in_archive'],
         sr=cfg['dataset']['sr'],
         sample_frames=cfg['dataset']['sample_frames'],
-        hop_length=cfg['dataset']['hop_length'] * 4,
+        hop_length=cfg['dataset']['hop_length'] * 2,
         metadata=val_metadata
     )
 

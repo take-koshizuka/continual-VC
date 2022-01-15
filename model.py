@@ -173,7 +173,7 @@ class VQW2V_RNNDecoder(nn.Module):
                 tar  = target_audio[i][j]
                 cv = cv_audio[i][j]
                 mcd.calculate_metric(cv, tar)
-        avg_mcd = mcd.compute()
+        avg_mcd = mcd.compute()['all']
         logs = { 'avg_val_loss' : avg_loss, 'avg_mcd' : avg_mcd }
         return { 'avg_mcd' : avg_mcd, 'log' : logs }
         # return { 'avg_loss' : avg_loss, 'log' : logs }
