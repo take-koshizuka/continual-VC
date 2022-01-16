@@ -1,7 +1,8 @@
 {
     "seed" : 57,
     "epochs": 500,
-    "checkpoint_period": 500,
+    "val_full_period": 10,
+    "checkpoint_period": 100,
     "pre":{
         "path_list_dir": "pseudo_data_list",
         "speakers": ["aew", "lnh", "awb", "ljm"],

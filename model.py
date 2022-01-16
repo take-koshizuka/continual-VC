@@ -149,7 +149,7 @@ class VQW2V_RNNDecoder(nn.Module):
         loss = F.cross_entropy(output.transpose(1, 2), mu_audio[:, 1:])
         return { 'loss' : loss }
 
-    def validation_step(self, batch, batch_idx):
+    def validation_step(self, batch, batch_idx, return_cv):
         self.encoder.eval()
         self.decoder.eval()
         audio, speakers = batch['audio'].to(self.device), batch['speakers'].to(self.device)
@@ -157,25 +157,33 @@ class VQW2V_RNNDecoder(nn.Module):
         with torch.no_grad():
             logits = self(audio, mu_audio, speakers)
             loss = F.cross_entropy(logits.transpose(1, 2), mu_audio[:, 1:])
-            dist = Categorical(logits=logits)
-            outputs = dist.sample().squeeze()
-            cv = aF.mu_law_decoding(outputs.float(), self.quantization_channels)
-        return { 'val_loss' : loss.unsqueeze(0), 'cv' : cv.cpu().detach(), 'tar' : audio.cpu().detach() }
+            ret = { 'val_loss' : loss.unsqueeze(0) }
+            if return_cv:
+                dist = Categorical(logits=logits)
+                outputs = dist.sample().squeeze()
+                cv = aF.mu_law_decoding(outputs.float(), self.quantization_channels)
+                ret['cv'] = cv.cpu().detach()
+                ret['tar'] = audio.cpu().detach() 
+        return ret
 
     def validation_epoch_end(self, outputs):
         avg_loss = torch.mean(torch.cat([ out['val_loss'] for out in outputs ], dim=0)).item()
-        target_audio = [ out['tar'].cpu().numpy() for out in outputs ]
-        cv_audio = [ out['cv'].cpu().numpy() for out in outputs ]
-        mcd = MelCepstralDistortion()
-        for i in range(len(target_audio)):
-            l = len(target_audio[i])
-            for j in range(l):
-                tar  = target_audio[i][j]
-                cv = cv_audio[i][j]
-                mcd.calculate_metric(cv, tar)
-        avg_mcd = mcd.compute()['all']
-        logs = { 'avg_val_loss' : avg_loss, 'avg_mcd' : avg_mcd }
-        return { 'avg_mcd' : avg_mcd, 'log' : logs }
+        if 'cv' in outputs[0]:
+            target_audio = [ out['tar'].cpu().numpy() for out in outputs ]
+            cv_audio = [ out['cv'].cpu().numpy() for out in outputs ]
+            mcd = MelCepstralDistortion()
+            for i in range(len(target_audio)):
+                l = len(target_audio[i])
+                for j in range(l):
+                    tar  = target_audio[i][j]
+                    cv = cv_audio[i][j]
+                    mcd.calculate_metric(cv, tar)
+            avg_mcd = mcd.compute()['all']
+            logs = { 'avg_val_loss' : avg_loss, 'avg_mcd' : avg_mcd }
+            return { 'avg_mcd' : avg_mcd, 'log' : logs }
+        else:
+            logs = { 'avg_val_loss' : avg_loss }
+            return { 'log' : logs }
         # return { 'avg_loss' : avg_loss, 'log' : logs }
 
     def convert(self, audio, speakers):
@@ -321,7 +329,7 @@ class VQW2V_RNNDecoder_Replay(VQW2V_RNNDecoder):
 
         return { 'loss' : loss }
 
-    def validation_step(self, batch_fine, batch_pre, batch_idx):
+    def validation_step(self, batch_fine, batch_pre, batch_idx, return_cv):
         self.encoder.eval()
         self.decoder.eval()
         with torch.no_grad():
@@ -358,14 +366,37 @@ class VQW2V_RNNDecoder_Replay(VQW2V_RNNDecoder):
             # decode
             pre_output = self.decoder(pre_mu_audio[:, :-1], pre_idxs1, pre_idxs2, pre_speakers, pre_mu_audio.size(1)-1)
             ## calculate loss
-            output = torch.cat([ fine_output, pre_output], dim=0)
+            logits = torch.cat([ fine_output, pre_output], dim=0)
             mu_audio = torch.cat( [ fine_mu_audio, pre_mu_audio], dim=0)
-            loss = F.cross_entropy(output.transpose(1, 2), mu_audio[:, 1:])
+            loss = F.cross_entropy(logits.transpose(1, 2), mu_audio[:, 1:])
             # --
+                
+            ret = { 'val_loss' : loss.unsqueeze(0) }
+            if return_cv:
+                audio = torch.cat([ fine_audio, pre_audio ], dim=0)
+                dist = Categorical(logits=logits)
+                outputs = dist.sample().squeeze()
+                cv = aF.mu_law_decoding(outputs.float(), self.quantization_channels)
+                ret['cv'] = cv.cpu().detach()
+                ret['tar'] = audio.cpu().detach()
 
         return { 'val_loss' : loss.unsqueeze(0) }
 
     def validation_epoch_end(self, outputs):
         avg_loss = torch.mean(torch.cat([ out['val_loss'] for out in outputs ], dim=0)).item()
-        logs = { 'avg_val_loss' : avg_loss }
-        return { 'avg_loss' : avg_loss, 'log' : logs }
+        if 'cv' in outputs[0]:
+            target_audio = [ out['tar'].cpu().numpy() for out in outputs ]
+            cv_audio = [ out['cv'].cpu().numpy() for out in outputs ]
+            mcd = MelCepstralDistortion()
+            for i in range(len(target_audio)):
+                l = len(target_audio[i])
+                for j in range(l):
+                    tar  = target_audio[i][j]
+                    cv = cv_audio[i][j]
+                    mcd.calculate_metric(cv, tar)
+            avg_mcd = mcd.compute()['all']
+            logs = { 'avg_val_loss' : avg_loss, 'avg_mcd' : avg_mcd }
+            return { 'avg_mcd' : avg_mcd, 'log' : logs }
+        else:
+            logs = { 'avg_val_loss' : avg_loss }
+            return { 'log' : logs }
