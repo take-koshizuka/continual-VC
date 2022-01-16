@@ -161,8 +161,7 @@ def main(train_config_path, checkpoint_dir, resume_path=""):
             except StopIteration:
                 va_it_pre = iter(va_dl_pre)
                 val_batch_pre = next(va_it_pre)
-
-            out = model.validation_step(val_batch_fine, val_batch_pre, batch_idx)
+            out = model.validation_step(val_batch_fine, val_batch_pre, batch_idx, (i % cfg['val_full_period'] == 0))
             outputs.append(out)
             
             del val_batch_fine
@@ -176,12 +175,14 @@ def main(train_config_path, checkpoint_dir, resume_path=""):
 
         with open(str(checkpoint_dir / f"records_elapse.json"), "w") as f:
             json.dump(records, f, indent=4)
-        # early_stopping
-        if early_stopping.judge(val_result):
-            early_stopping.update(val_result)
-            state_dict = model.state_dict(optimizer, scheduler)
-            state_dict['epochs'] = i
-            early_stopping.best_state = state_dict
+        
+        if i % cfg['val_full_period'] == 0:
+            # early_stopping
+            if early_stopping.judge(val_result):
+                early_stopping.update(val_result)
+                state_dict = model.state_dict(optimizer, scheduler)
+                state_dict['epochs'] = i
+                early_stopping.best_state = state_dict
 
         if i % cfg['checkpoint_period'] == 0:
             state_dict = model.state_dict(optimizer, scheduler)
