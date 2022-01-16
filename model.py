@@ -380,7 +380,7 @@ class VQW2V_RNNDecoder_Replay(VQW2V_RNNDecoder):
                 ret['cv'] = cv.cpu().detach()
                 ret['tar'] = audio.cpu().detach()
 
-        return { 'val_loss' : loss.unsqueeze(0) }
+        return ret
 
     def validation_epoch_end(self, outputs):
         avg_loss = torch.mean(torch.cat([ out['val_loss'] for out in outputs ], dim=0)).item()
