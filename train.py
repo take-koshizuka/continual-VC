@@ -52,7 +52,7 @@ def main(train_config_path, checkpoint_dir, resume_path=""):
         root=cfg['dataset']['folder_in_archive'],
         sr=cfg['dataset']['sr'],
         sample_frames=cfg['dataset']['sample_frames'],
-        hop_length=cfg['dataset']['hop_length'] * 2,
+        hop_length=cfg['dataset']['hop_length'],
         metadata=val_metadata
     )
 
@@ -61,9 +61,8 @@ def main(train_config_path, checkpoint_dir, resume_path=""):
             shuffle=True,
             drop_last=True)
     
-    va_bs = len(va_ds) if len(va_ds) <= 64 else 25
     va_dl = DataLoader(va_ds,
-            batch_size=va_bs,
+            batch_size=50,
             drop_last=True)
 
     model = VQW2V_RNNDecoder(cfg['encoder'], cfg['decoder'], device)
