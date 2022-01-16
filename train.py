@@ -122,9 +122,10 @@ def main(train_config_path, checkpoint_dir, resume_path=""):
         scheduler.step()
 
         # validation phase
+        flg_val_full = (i > cfg['val_full_min']) and (i % cfg['val_full_period'] == 0)
         outputs = []
         for batch_idx, eval_batch in enumerate(tqdm(va_dl, leave=False)):
-            out = model.validation_step(eval_batch, batch_idx, (i % cfg['val_full_period'] == 0))
+            out = model.validation_step(eval_batch, batch_idx, flg_val_full)
             outputs.append(out)
             del eval_batch
 
@@ -136,7 +137,7 @@ def main(train_config_path, checkpoint_dir, resume_path=""):
             json.dump(records, f, indent=4)
         
         # early_stopping
-        if i % cfg['val_full_period'] == 0:
+        if flg_val_full:
             if  early_stopping.judge(val_result):
                 early_stopping.update(val_result)
                 state_dict = model.state_dict(optimizer, scheduler)

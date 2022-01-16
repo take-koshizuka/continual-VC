@@ -2,6 +2,8 @@
     "seed" : 57,
     "epochs": 2750,
     "checkpoint_period": 500,
+    "val_full_min": 2250,
+    "val_full_period": 20,
     "path_list_dir": "data_list",
     "speakers": ["rms", "slt", "aew", "lnh", "awb", "ljm"],
     "train_size": 443,
