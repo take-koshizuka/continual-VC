@@ -104,7 +104,7 @@ def main(train_config_path, checkpoint_dir, resume_path=""):
                     gamma=cfg['scheduler']['gamma']
                 )
     
-    early_stopping = EarlyStopping('avg_loss', 'min')
+    early_stopping = EarlyStopping('avg_mcd', 'min')
 
     if AMP:
         model.decoder, optimizer = amp.initialize(model.decoder, optimizer, opt_level="O1")

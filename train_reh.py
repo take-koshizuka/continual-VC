@@ -102,7 +102,7 @@ def main(train_config_path, checkpoint_dir, resume_path=""):
                     gamma=cfg['scheduler']['gamma']
                 )
 
-    early_stopping = EarlyStopping('avg_loss', 'min')
+    early_stopping = EarlyStopping('avg_mcd', 'min')
 
     init_epochs = 1
     max_epochs = cfg['epochs']
