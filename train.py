@@ -63,7 +63,7 @@ def main(train_config_path, checkpoint_dir, resume_path=""):
     
     va_dl = DataLoader(va_ds,
             batch_size=50,
-            drop_last=True)
+            drop_last=False)
 
     model = VQW2V_RNNDecoder(cfg['encoder'], cfg['decoder'], device)
     model.to(device)
