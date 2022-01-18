@@ -1,9 +1,8 @@
 {
     "seed" : 57,
-    "source" : "gka",
-    "target" : ["aew", "lnh", "awb", "ljm"],
-    "size": 200,
-    "pseudo_data_list_dir": "pseudo_data_list/ft",
+    "name": "joint",
+    "speakers": ["rms", "slt", "aew", "lnh", "awb", "ljm"],
+    "path_list_dir": "data_list",
     "dataset" : {
         "folder_in_archive": "ARCTIC",
         "sr" : 16000

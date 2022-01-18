@@ -1,7 +1,9 @@
 {
     "seed" : 57,
-    "epochs": 1000,
-    "checkpoint_period": 200,
+    "epochs": 500,
+    "val_full_min": 100,
+    "val_full_period": 10,
+    "checkpoint_period": 100,
     "pre":{
         "path_list_dir": "data_list",
         "speakers": ["rms"],
