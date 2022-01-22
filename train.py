@@ -130,7 +130,7 @@ def main(train_config_path, checkpoint_dir, resume_path=""):
             del eval_batch
 
         val_result = model.validation_epoch_end(outputs)
-        writer.add_scalars('data/loss', val_result['log'])
+        writer.add_scalars('loss/val', val_result['log'], i)
         records[f'epoch {i}'] = val_result['log']
 
         with open(str(checkpoint_dir / f"records_elapse.json"), "w") as f:

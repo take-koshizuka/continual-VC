@@ -131,6 +131,7 @@ class VQW2V_RNNDecoder(nn.Module):
         self.quantization_channels = 2**decoder_cfg['bits']
         self.hop_length = decoder_cfg['hop_length']
         self.device = device
+        self.w2l = Wav2Letter(self.device)
         self.encoder.eval()
 
     def forward(self, audio, mu_audio, speakers):
@@ -217,7 +218,7 @@ class VQW2V_RNNDecoder(nn.Module):
         target_speaker_set = list(set(target_speakers))
         target_audio = [ out['target_audio'].cpu().numpy() for out in outputs ]
         utterances = np.array([ out['utterance'] for out in outputs ]).flatten()
-        w2l = Wav2Letter(self.device)
+        w2l = self.w2l
         mcd = MelCepstralDistortion(target_speaker_set)
         wer = WordErrorRate(target_speaker_set)
         cer = CharErrorRate(target_speaker_set)
@@ -277,8 +278,9 @@ class VQW2V_RNNDecoder(nn.Module):
     
 
 class VQW2V_RNNDecoder_Replay(VQW2V_RNNDecoder):
-    def __init__(self, enc_checkpoint_path, decoder_cfg, device):
+    def __init__(self, enc_checkpoint_path, decoder_cfg, lm, device):
         super(VQW2V_RNNDecoder_Replay, self).__init__(enc_checkpoint_path, decoder_cfg, device)
+        self.lm = lm
 
     def forward(self, audio, mu_audio, speakers):
         with torch.no_grad():
@@ -323,10 +325,15 @@ class VQW2V_RNNDecoder_Replay(VQW2V_RNNDecoder):
         pre_output = self.decoder(pre_mu_audio[:, :-1], pre_idxs1, pre_idxs2, pre_speakers, pre_mu_audio.size(1)-1)
 
         # calculate loss
-        output = torch.cat([ fine_output, pre_output], dim=0)
-        mu_audio = torch.cat( [ fine_mu_audio, pre_mu_audio], dim=0)
-        loss = F.cross_entropy(output.transpose(1, 2), mu_audio[:, 1:])
+        #output = torch.cat([ fine_output, pre_output], dim=0)
+        #mu_audio = torch.cat( [ fine_mu_audio, pre_mu_audio], dim=0)
+        #loss = F.cross_entropy(output.transpose(1, 2), mu_audio[:, 1:])
 
+        fine_loss = F.cross_entropy(fine_output.transpose(1, 2), fine_mu_audio[:, 1:])
+        pre_loss = F.cross_entropy(pre_output.transpose(1, 2), pre_mu_audio[:, 1:])
+        lm = len(fine_audio) / (len(fine_audio) + len(pre_audio)) if self.lm is None else self.lm
+            
+        loss = lm * fine_loss + (1 - lm) * pre_loss
         return { 'loss' : loss }
 
     def validation_step(self, batch_fine, batch_pre, batch_idx, return_cv):
@@ -367,8 +374,11 @@ class VQW2V_RNNDecoder_Replay(VQW2V_RNNDecoder):
             pre_output = self.decoder(pre_mu_audio[:, :-1], pre_idxs1, pre_idxs2, pre_speakers, pre_mu_audio.size(1)-1)
             ## calculate loss
             logits = torch.cat([ fine_output, pre_output], dim=0)
-            mu_audio = torch.cat( [ fine_mu_audio, pre_mu_audio], dim=0)
-            loss = F.cross_entropy(logits.transpose(1, 2), mu_audio[:, 1:])
+            #mu_audio = torch.cat( [ fine_mu_audio, pre_mu_audio], dim=0)
+            #loss = F.cross_entropy(logits.transpose(1, 2), mu_audio[:, 1:])
+            fine_loss = F.cross_entropy(fine_output.transpose(1, 2), fine_mu_audio[:, 1:])
+            pre_loss = F.cross_entropy(pre_output.transpose(1, 2), pre_mu_audio[:, 1:])
+            loss = (fine_loss + pre_loss) / 2
             # --
                 
             ret = { 'val_loss' : loss.unsqueeze(0) }

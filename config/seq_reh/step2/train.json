@@ -1,18 +1,18 @@
 {
     "seed" : 57,
-    "epochs": 500,
-    "val_full_min": 100,
-    "val_full_period": 10,
-    "checkpoint_period": 100,
+    "epochs": 2000,
+    "val_full_min": 1000,
+    "val_full_period": 20,
+    "checkpoint_period": 400,
     "pre":{
         "path_list_dir": "data_list",
-        "speakers": ["rms", "slt", "aew", "lnh"],
+        "speakers": ["rms"],
         "train_size": 50,
         "val_size": 20
     },
     "fine":{
         "path_list_dir": "data_list",
-        "speakers": ["awb"],
+        "speakers": ["slt"],
         "train_size": 443,
         "val_size": 50
     },
@@ -26,7 +26,7 @@
         "hop_length": 160
     },
     "encoder" : "checkpoints/vq-wav2vec.pt",
-    "decoder_checkpoint" : "checkpoints/seq_reh/step4/best-model.pt",
+    "decoder_checkpoint" : "checkpoints/seq_reh/step1/best-model.pt",
     "decoder" : {
         "code_book_num": 320,
         "code_embedding_dim": 128,
