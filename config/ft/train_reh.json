@@ -25,6 +25,7 @@
         "sample_frames" : 32,
         "hop_length": 160
     },
+    "lm": null,
     "encoder" : "checkpoints/vq-wav2vec.pt",
     "decoder_checkpoint" : "checkpoints/baseline493/best-model.pt",
     "decoder" : {

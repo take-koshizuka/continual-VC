@@ -19,12 +19,13 @@
     "random_split": false,
     "dataset" : {
         "folder_in_archive": "ARCTIC",
-        "batch_size_per_class_fine" : 4,
-        "batch_size_per_class_pre" : 4,
+        "batch_size_per_class_fine" : 25,
+        "batch_size_per_class_pre" : 25,
         "sr" : 16000,
         "sample_frames" : 32,
         "hop_length": 160
     },
+    "lm": null,
     "encoder" : "checkpoints/vq-wav2vec.pt",
     "decoder_checkpoint" : "checkpoints/seq_reh/step5/best-model.pt",
     "decoder" : {

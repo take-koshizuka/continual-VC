@@ -278,7 +278,7 @@ class VQW2V_RNNDecoder(nn.Module):
     
 
 class VQW2V_RNNDecoder_Replay(VQW2V_RNNDecoder):
-    def __init__(self, enc_checkpoint_path, decoder_cfg, lm, device):
+    def __init__(self, enc_checkpoint_path, decoder_cfg, device, lm=None):
         super(VQW2V_RNNDecoder_Replay, self).__init__(enc_checkpoint_path, decoder_cfg, device)
         self.lm = lm
 
