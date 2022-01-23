@@ -86,7 +86,6 @@ def main(train_config_path, checkpoint_dir, resume_path=""):
     va_dl_pre = DataLoader(va_ds_pre, batch_size=50, drop_last=False)
     
     tr_it_pre = iter(tr_dl_pre)
-    va_it_pre = iter(va_dl_pre)
     
     model = VQW2V_RNNDecoder_Replay(cfg['encoder'], cfg['decoder'], device, cfg['lm'])
     model.to(device)
@@ -154,23 +153,25 @@ def main(train_config_path, checkpoint_dir, resume_path=""):
             gc.collect()
             scheduler.step()
         # validation phase
-        outputs = []
+        outputs_fine = []
         flg_val_full = (i > cfg['val_full_min']) and (i % cfg['val_full_period'] == 0)
         for batch_idx, val_batch_fine in enumerate(tqdm(va_dl_fine, leave=False)):
-            try:
-                val_batch_pre = next(va_it_pre) 
-            except StopIteration:
-                va_it_pre = iter(va_dl_pre)
-                val_batch_pre = next(va_it_pre)
-            out = model.validation_step(val_batch_fine, val_batch_pre, batch_idx, flg_val_full)
-            outputs.append(out)
+            out = model.validation_step(val_batch_fine, batch_idx, flg_val_full)
+            outputs_fine.append(out)
             
             del val_batch_fine
-            del val_batch_pre
-
             gc.collect()
 
-        val_result = model.validation_epoch_end(outputs)
+        outputs_pre = []
+        for batch_idx, val_batch_pre in enumerate(tqdm(va_dl_pre, leave=False)):
+            out = model.validation_step(val_batch_pre, batch_idx, flg_val_full)
+            outputs_pre.append(out)
+            
+            del val_batch_pre
+            gc.collect()
+
+        val_result = model.validation_epoch_end(outputs_fine, outputs_pre)
+
         writer.add_scalars('loss/val', val_result['log'], i)
         records[f'epoch {i}'] = val_result['log']
 

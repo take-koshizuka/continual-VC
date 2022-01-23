@@ -331,72 +331,49 @@ class VQW2V_RNNDecoder_Replay(VQW2V_RNNDecoder):
 
         fine_loss = F.cross_entropy(fine_output.transpose(1, 2), fine_mu_audio[:, 1:])
         pre_loss = F.cross_entropy(pre_output.transpose(1, 2), pre_mu_audio[:, 1:])
-        lm = len(fine_audio) / (len(fine_audio) + len(pre_audio)) if self.lm is None else self.lm
             
-        loss = lm * fine_loss + (1 - lm) * pre_loss
+        loss = self.lm * fine_loss + (1 - self.lm) * pre_loss
         return { 'loss' : loss }
 
-    def validation_step(self, batch_fine, batch_pre, batch_idx, return_cv):
+    def validation_step(self, batch, batch_idx, return_cv):
         self.encoder.eval()
         self.decoder.eval()
         with torch.no_grad():
-            ### fine
-            fine_audio, fine_speakers = batch_fine['audio'].to(self.device), batch_fine['speakers'].to(self.device)
-            # adjust tensor size
-            #fine_audio = fine_audio.view(-1, fine_audio.size(-1))
-            #fine_speakers = fine_speakers.flatten() 
-            fine_mu_audio =  aF.mu_law_encoding(fine_audio, self.quantization_channels)
-
-            # encode
-            
-            fine_idxs = self.encoder.encode(fine_audio[:, :-1])
-            fine_idxs1, fine_idxs2 = fine_idxs[:,:,0], fine_idxs[:,:,1]
-            
-            # decode
-            fine_output = self.decoder(fine_mu_audio[:, :-1], fine_idxs1, fine_idxs2, fine_speakers,fine_mu_audio.size(1)-1)
-
-            ###
-            ### pre
-            pre_audio, pre_speakers = batch_pre['audio'].to(self.device), batch_pre['speakers'].to(self.device)
+            audio, speakers = batch['audio'].to(self.device), batch['speakers'].to(self.device)
             #pre_audio = pre_audio.view(-1, pre_audio.size(-1))
-            pre_mu_audio =  aF.mu_law_encoding(pre_audio, self.quantization_channels)
+            mu_audio =  aF.mu_law_encoding(audio, self.quantization_channels)
             #pre_speakers = pre_speakers.flatten()
 
-            if 'idxs' in batch_pre:
-                pre_idxs = batch_pre['idxs'].to(self.device)
+            if 'idxs' in batch:
+                idxs = batch['idxs'].to(self.device)
                 #pre_idxs = pre_idxs.view(-1, pre_idxs.size(-2), pre_idxs.size(-1))
-                pre_idxs1, pre_idxs2 = pre_idxs[:,:,0], pre_idxs[:,:,1]
+                idxs1, idxs2 = idxs[:,:,0], idxs[:,:,1]
             else:
-                
-                pre_idxs = self.encoder.encode(pre_audio[:, :-1])
-                pre_idxs1, pre_idxs2 = pre_idxs[:,:,0], pre_idxs[:,:,1]
+                idxs = self.encoder.encode(audio[:, :-1])
+                idxs1, idxs2 = idxs[:,:,0], idxs[:,:,1]
             # decode
-            pre_output = self.decoder(pre_mu_audio[:, :-1], pre_idxs1, pre_idxs2, pre_speakers, pre_mu_audio.size(1)-1)
+            logits = self.decoder(mu_audio[:, :-1], idxs1, idxs2, speakers, mu_audio.size(1)-1)
             ## calculate loss
-            logits = torch.cat([ fine_output, pre_output], dim=0)
-            #mu_audio = torch.cat( [ fine_mu_audio, pre_mu_audio], dim=0)
-            #loss = F.cross_entropy(logits.transpose(1, 2), mu_audio[:, 1:])
-            fine_loss = F.cross_entropy(fine_output.transpose(1, 2), fine_mu_audio[:, 1:])
-            pre_loss = F.cross_entropy(pre_output.transpose(1, 2), pre_mu_audio[:, 1:])
-            loss = (fine_loss + pre_loss) / 2
-            # --
-                
+            loss = F.cross_entropy(logits.transpose(1, 2), mu_audio[:, 1:])
+            
             ret = { 'val_loss' : loss.unsqueeze(0) }
             if return_cv:
-                audio = torch.cat([ fine_audio, pre_audio ], dim=0)
                 dist = Categorical(logits=logits)
                 outputs = dist.sample().squeeze()
                 cv = aF.mu_law_decoding(outputs.float(), self.quantization_channels)
                 ret['cv'] = cv.cpu().detach()
                 ret['tar'] = audio.cpu().detach()
-
         return ret
 
-    def validation_epoch_end(self, outputs):
-        avg_loss = torch.mean(torch.cat([ out['val_loss'] for out in outputs ], dim=0)).item()
-        if 'cv' in outputs[0]:
-            target_audio = [ out['tar'].cpu().numpy() for out in outputs ]
-            cv_audio = [ out['cv'].cpu().numpy() for out in outputs ]
+    def validation_epoch_end(self, outputs_fine, outputs_pre):
+        avg_loss_fine = torch.mean(torch.cat([ out['val_loss'] for out in outputs_fine ], dim=0)).item()
+        avg_loss_pre = torch.mean(torch.cat([ out['val_loss'] for out in outputs_pre ], dim=0)).item()
+        avg_loss = avg_loss_fine * self.lm + avg_loss_pre * (1 - self.lm)
+
+        cv_flg = ('cv' in outputs_fine[0])
+        if cv_flg:
+            target_audio = [ out['tar'].cpu().numpy() for out in outputs_fine ]
+            cv_audio = [ out['cv'].cpu().numpy() for out in outputs_fine ]
             mcd = MelCepstralDistortion()
             for i in range(len(target_audio)):
                 l = len(target_audio[i])
@@ -404,9 +381,22 @@ class VQW2V_RNNDecoder_Replay(VQW2V_RNNDecoder):
                     tar  = target_audio[i][j]
                     cv = cv_audio[i][j]
                     mcd.calculate_metric(cv, tar)
-            avg_mcd = mcd.compute()['all']
-            logs = { 'avg_val_loss' : avg_loss, 'avg_mcd' : avg_mcd }
+            avg_mcd_fine = mcd.compute()['all']
+
+            target_audio = [ out['tar'].cpu().numpy() for out in outputs_pre ]
+            cv_audio = [ out['cv'].cpu().numpy() for out in outputs_pre ]
+            mcd = MelCepstralDistortion()
+            for i in range(len(target_audio)):
+                l = len(target_audio[i])
+                for j in range(l):
+                    tar  = target_audio[i][j]
+                    cv = cv_audio[i][j]
+                    mcd.calculate_metric(cv, tar)
+            avg_mcd_pre = mcd.compute()['all']
+            avg_mcd = avg_mcd_fine * self.lm + avg_mcd_pre * (1 - self.lm)
+            logs = { 'avg_val_loss' : avg_loss, 'avg_val_loss_fine' : avg_loss_fine, 'avg_val_loss_pre' :  avg_loss_pre, 
+                        'avg_mcd' : avg_mcd, 'avg_mcd_fine' : avg_mcd_fine, 'avg_mcd_pre' : avg_mcd_pre }
             return { 'avg_mcd' : avg_mcd, 'log' : logs }
         else:
-            logs = { 'avg_val_loss' : avg_loss }
+            logs = { 'avg_val_loss' : avg_loss, 'avg_val_loss_fine' : avg_loss_fine, 'avg_val_loss_pre' :  avg_loss_pre }
             return { 'log' : logs }
