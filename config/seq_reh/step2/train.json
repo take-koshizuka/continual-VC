@@ -1,9 +1,9 @@
 {
     "seed" : 57,
-    "epochs": 2000,
-    "val_full_min": 1000,
-    "val_full_period": 20,
-    "checkpoint_period": 400,
+    "epochs": 1000,
+    "val_full_min": 500,
+    "val_full_period": 10,
+    "checkpoint_period": 200,
     "pre":{
         "path_list_dir": "data_list",
         "speakers": ["rms"],
@@ -19,7 +19,7 @@
     "random_split": false,
     "dataset" : {
         "folder_in_archive": "ARCTIC",
-        "batch_size_per_class_fine" : 25,
+        "batch_size_per_class_fine" : 30,
         "batch_size_per_class_pre" : 25,
         "sr" : 16000,
         "sample_frames" : 32,
@@ -42,7 +42,7 @@
         "hop_length": 160
     },
     "optim" : {
-        "lr" : 4e-4,
+        "lr" : 1e-3,
         "beta_0" : 0.9,
         "beta_1" : 0.999
     },
